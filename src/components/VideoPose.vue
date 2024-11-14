@@ -2,14 +2,22 @@
   <div class="container">
     <h1>MoveNet 실시간 자세 인식 및 게임 화면</h1>
     
-    <!-- 난이도 선택 -->
-    <div v-if="!animationRunning && countdown === null" class="difficulty-selection">
+    <!-- 난이도 및 배경 선택 -->
+    <div v-if="!animationRunning && countdown === null" class="settings-selection">
       <h2>난이도 선택</h2>
       <div>
         <button v-for="level in 5" :key="'easy' + level" @click="selectDifficulty('easy', level)">쉬움 {{ level }}</button>
         <button v-for="level in 5" :key="'medium' + level" @click="selectDifficulty('medium', level)">보통 {{ level }}</button>
         <button v-for="level in 5" :key="'hard' + level" @click="selectDifficulty('hard', level)">어려움 {{ level }}</button>
       </div>
+      <h2>배경 선택</h2>
+      <div>
+        <button @click="selectBackground('default')">해변</button>
+        <button @click="selectBackground('soccer')">자두랑 축구</button>
+        <button @click="selectBackground('ocean')">바다이야기</button>
+        <button @click="selectBackground('home')">떡잎마을</button>
+      </div>
+      <button @click="startGame" :disabled="!difficulty || !backgroundSelected">게임 시작</button>
     </div>
 
     <!-- 게임 화면 -->
@@ -35,6 +43,14 @@ import * as poseDetection from '@tensorflow-models/pose-detection';
 import characterImage from '@/assets/Alian.png';
 import ballImage from '@/assets/Ball.png';
 import bgImage from '@/assets/BgBall.jpg';
+import soccerBg from '@/assets/soccer_back.jpg';
+import oceanBg from '@/assets/ocean_back.jpg';
+import homeBg from '@/assets/home_back.jpg';
+
+import zzangGooImage from '@/assets/zzangGoo.png';
+import jadooImage from '@/assets/jadoo.jpg';
+
+
 
 export default {
   name: 'VideoPose',
@@ -52,11 +68,12 @@ export default {
       personDetected: false,
       currentLevel: 1, // 현재 게임 단계
       maxLevel: 10, // 최대 단계
-      difficulty: 'medium', // 난이도 설정 (쉬움, 보통, 어려움)
+      difficulty: '', // 난이도 설정 (쉬움, 보통, 어려움)
       difficultyLevel: 1, // 난이도 단계 (1-5)
       initialUserX: null, // 최초 사용자의 X 좌표를 저장
       ballImageSrc: ballImage,
       bgImageSrc: bgImage,
+      backgroundSelected: false, // 배경 선택 여부
       caloriesBurned: 0, // 소모된 칼로리 양
       lastKeypointPosition: null, // 마지막 keypoint 위치
     };
@@ -78,7 +95,31 @@ export default {
       this.difficulty = difficulty;
       this.difficultyLevel = level;
       this.setGameDifficulty();
-      this.setupCamera(); // 난이도 선택 시 카메라를 설정
+    },
+    selectBackground(background) {
+        if (background === 'soccer') {
+            this.bgImageSrc = soccerBg;
+            this.characterSrc = jadooImage; // soccer 배경일 때 캐릭터 설정
+            this.characterSize = 160;
+        } else if (background === 'ocean') {
+            this.bgImageSrc = oceanBg;
+            this.characterSrc = characterImage; // ocean 배경일 때 캐릭터 설정
+            this.characterSize = 120;
+        } else if (background === 'home') {
+            this.bgImageSrc = homeBg;
+            this.characterSrc = zzangGooImage; // home 배경일 때 캐릭터 설정
+            this.characterSize = 155;
+        } else {
+            this.bgImageSrc = bgImage; // default 배경을 bgImage로 설정
+            this.characterSrc = characterImage; // 기본 캐릭터 설정
+            this.characterSize = 145;
+        }
+        this.backgroundSelected = true;
+    },
+
+    async startGame() {
+      await this.setupCamera();
+      await this.loadMoveNet();
       this.startCountdown();
     },
     setGameDifficulty() {
@@ -101,20 +142,21 @@ export default {
           video: { width: 1280, height: 720 }
         });
         video.srcObject = stream;
-        video.onloadedmetadata = () => {
-          video.play();
-          this.loadMoveNet();
-        };
+        return new Promise(resolve => {
+          video.onloadedmetadata = () => {
+            video.play();
+            resolve();
+          };
+        });
       } catch (error) {
         console.error("카메라 접근 오류:", error);
         alert("카메라에 접근할 수 없습니다. 권한을 확인하거나 HTTPS 환경에서 실행해주세요.");
       }
     },
     async loadMoveNet() {
-      await tf.ready(); // TensorFlow.js 백엔드가 초기화될 때까지 대기
+      await tf.ready();
       const detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
       const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
-      console.log("MoveNet 모델이 성공적으로 로드되었습니다.");
       this.detectPose(detector);
     },
     async detectPose(detector) {
@@ -130,12 +172,12 @@ export default {
       trackingCanvas.width = video.videoWidth;
       trackingCanvas.height = video.videoHeight;
 
-      const poses = await detector.estimatePoses(video, { flipHorizontal: false });
-      ctx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
-
       ctx.save();
       ctx.scale(-1, 1);
       ctx.translate(-trackingCanvas.width, 0);
+
+      const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+      ctx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
 
       if (poses && poses.length > 0) {
         this.drawKeypoints(ctx, poses[0].keypoints);
@@ -175,8 +217,8 @@ export default {
       this.balls = Array.from({ length: this.numBalls }, () => ({
         x: Math.random() * window.innerWidth,
         y: 0,
-        radius: this.characterSize / 2, // 공의 크기를 캐릭터 크기와 맞춤
-        speed: 2 + Math.random() * this.currentLevel, // 단계에 따라 속도 증가
+        radius: this.characterSize / 2,
+        speed: 2 + Math.random() * this.currentLevel,
       }));
     },
     gameLoop() {
@@ -260,15 +302,15 @@ export default {
     updateCharacterPosition(keypoints) {
       const leftShoulder = keypoints.find(point => point.name === 'left_shoulder');
       const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
-      
+  
       if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-        const userX = (leftShoulder.x + rightShoulder.x) / 2; // 사용자의 현재 X 좌표
+        const userX = (leftShoulder.x + rightShoulder.x) / 2;
 
         if (this.initialUserX === null) {
           this.initialUserX = userX;
         }
 
-        const deltaX = userX - this.initialUserX;
+        const deltaX = -(userX - this.initialUserX);
         const maxX = window.innerWidth - this.characterSize;
         const minX = 0;
         const newCharacterX = window.innerWidth / 2 + deltaX;
@@ -281,14 +323,13 @@ export default {
       const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
 
       if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-        const currentPosition = (leftShoulder.y + rightShoulder.y) / 2; // 현재 상체 중심의 Y 좌표
+        const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
 
-        // 움직임이 일정 기준 이상일 때만 칼로리 소모량 추가
         if (this.lastKeypointPosition !== null) {
           const delta = Math.abs(currentPosition - this.lastKeypointPosition);
 
-          if (delta > 3) { // 움직임이 5 이상일 때만 소모량 추가
-            this.caloriesBurned += delta * 0.0001; // 가중치 조정 가능
+          if (delta > 3) {
+            this.caloriesBurned += delta * 0.0001;
           }
         }
         
@@ -305,12 +346,12 @@ export default {
   overflow: hidden;
 }
 
-.difficulty-selection {
+.settings-selection {
   text-align: center;
   margin: 20px;
 }
 
-.difficulty-selection button {
+.settings-selection button {
   margin: 5px;
   padding: 10px 20px;
   font-size: 16px;
@@ -356,6 +397,11 @@ video, #trackingCanvas {
   width: 100%;
   height: 100%;
 }
+
+video {
+  transform: scaleX(-1);
+}
+
 
 .character {
   position: absolute;
