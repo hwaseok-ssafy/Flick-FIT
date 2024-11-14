@@ -118,45 +118,46 @@ export default {
       this.detectPose(detector);
     },
     async detectPose(detector) {
-      const video = this.$refs.video;
-      const trackingCanvas = this.$refs.trackingCanvas;
+  const video = this.$refs.video;
+  const trackingCanvas = this.$refs.trackingCanvas;
 
-      if (!trackingCanvas) {
-        console.error("Tracking Canvas가 로드되지 않았습니다.");
-        return;
-      }
+  if (!trackingCanvas) {
+    console.error("Tracking Canvas가 로드되지 않았습니다.");
+    return;
+  }
 
-      const ctx = trackingCanvas.getContext('2d');
-      trackingCanvas.width = video.videoWidth;
-      trackingCanvas.height = video.videoHeight;
+  const ctx = trackingCanvas.getContext('2d');
+  trackingCanvas.width = video.videoWidth;
+  trackingCanvas.height = video.videoHeight;
 
-      const poses = await detector.estimatePoses(video, { flipHorizontal: false });
-      ctx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+  // 좌우 반전을 적용하여 비디오를 표시
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-trackingCanvas.width, 0);
 
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.translate(-trackingCanvas.width, 0);
+  const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+  ctx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
 
-      if (poses && poses.length > 0) {
-        this.drawKeypoints(ctx, poses[0].keypoints);
-        this.drawSkeleton(ctx, poses[0].keypoints);
-        this.updateCharacterPosition(poses[0].keypoints);
-        this.calculateCalories(poses[0].keypoints);
+  if (poses && poses.length > 0) {
+    this.drawKeypoints(ctx, poses[0].keypoints);
+    this.drawSkeleton(ctx, poses[0].keypoints);
+    this.updateCharacterPosition(poses[0].keypoints);
+    this.calculateCalories(poses[0].keypoints);
 
-        if (!this.personDetected) {
-          this.personDetected = true;
-          this.startCountdown();
-        }
-      }
+    if (!this.personDetected) {
+      this.personDetected = true;
+      this.startCountdown();
+    }
+  }
 
-      ctx.restore();
+  ctx.restore();
 
-      if (this.animationRunning) {
-        requestAnimationFrame(() => this.detectPose(detector));
-      } else {
-        requestAnimationFrame(() => this.detectPose(detector));
-      }
-    },
+  if (this.animationRunning) {
+    requestAnimationFrame(() => this.detectPose(detector));
+  } else {
+    requestAnimationFrame(() => this.detectPose(detector));
+  }
+},
     startCountdown() {
       this.countdown = 3;
       const countdownInterval = setInterval(() => {
@@ -260,22 +261,23 @@ export default {
     updateCharacterPosition(keypoints) {
       const leftShoulder = keypoints.find(point => point.name === 'left_shoulder');
       const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
-      
+  
       if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-        const userX = (leftShoulder.x + rightShoulder.x) / 2; // 사용자의 현재 X 좌표
+        const userX = (leftShoulder.x + rightShoulder.x) / 2; // 현재 X 좌표
 
-        if (this.initialUserX === null) {
-          this.initialUserX = userX;
-        }
-
-        const deltaX = userX - this.initialUserX;
-        const maxX = window.innerWidth - this.characterSize;
-        const minX = 0;
-        const newCharacterX = window.innerWidth / 2 + deltaX;
-
-        this.characterX = Math.min(maxX, Math.max(minX, newCharacterX));
+      if (this.initialUserX === null) {
+        this.initialUserX = userX;
       }
-    },
+
+      // 좌우 반전을 고려하여 deltaX를 반대로 적용
+      const deltaX = -(userX - this.initialUserX);
+      const maxX = window.innerWidth - this.characterSize;
+      const minX = 0;
+      const newCharacterX = window.innerWidth / 2 + deltaX;
+
+      this.characterX = Math.min(maxX, Math.max(minX, newCharacterX));
+    }
+  },
     calculateCalories(keypoints) {
       const leftShoulder = keypoints.find(point => point.name === 'left_shoulder');
       const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
@@ -355,6 +357,10 @@ export default {
 video, #trackingCanvas {
   width: 100%;
   height: 100%;
+}
+
+video {
+  transform: scaleX(-1);
 }
 
 .character {
