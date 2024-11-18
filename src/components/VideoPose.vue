@@ -131,6 +131,7 @@ export default {
       };
     },
   },
+  
   methods: {
     selectDifficulty(difficulty) {
       this.difficulty = difficulty;
