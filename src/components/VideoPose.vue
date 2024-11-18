@@ -3,7 +3,7 @@
     <h1>MoveNet 실시간 자세 인식 및 게임 화면</h1>
 
     <!-- 난이도 및 배경 선택 -->
-    <div v-if="!animationRunning && countdown === null" class="settings-selection">
+    <div v-if="!animationRunning && countdown === null && !gameOver" class="settings-selection">
       <h2>난이도 선택</h2>
       <div>
         <button @click="selectDifficulty('easy')">쉬움</button>
@@ -21,12 +21,21 @@
     </div>
 
     <!-- 게임 화면 -->
-    <div class="game-container" v-if="animationRunning || countdown !== null">
+    <div class="game-container" v-if="animationRunning || countdown !== null || gameOver">
       <canvas ref="gameCanvas"></canvas>
       <img :src="characterSrc" :style="characterStyle" alt="character" class="character" />
       <div v-if="countdown > 0" class="countdown">{{ countdown }}</div>
-      <div v-else-if="countdown === 0" class="start-text">Start!</div>
+      <div v-else-if="countdown === 0 && !gameOver" class="start-text">Start!</div>
+      <div v-if="gameOver" class="game-over-image">
+        <img src="@/assets/GameOver.png" alt="Game Over" />
+      </div>
       <div class="calories-burned">{{ caloriesBurned.toFixed(2) }} kcal</div>
+
+      <!-- 스테이지 및 타이머 정보 -->
+      <div class="stage-info" v-if="animationRunning && !gameOver">
+        <div>스테이지: {{ currentStage }}/5</div>
+        <div>남은 시간: {{ timeRemaining }}초</div>
+      </div>
     </div>
 
     <!-- MoveNet 인식 화면 (좌측 상단 고정) -->
@@ -62,6 +71,7 @@ export default {
     return {
       balls: [],
       animationRunning: false,
+      gameOver: false,
       countdown: null,
       characterSrc: characterImage,
       characterX: window.innerWidth / 2,
@@ -80,7 +90,33 @@ export default {
       caloriesBurned: 0,
       lastKeypointPosition: null,
       spawnInterval: 1000,
-      fixedBallSize: 50
+      fixedBallSize: 50,
+      currentStage: 1,
+      stageTimer: null,
+      timeRemaining: 60,
+      stageConfig: {
+        easy: [
+          { numBalls: 5, maxSpeed: 2 },
+          { numBalls: 7, maxSpeed: 3 },
+          { numBalls: 10, maxSpeed: 4 },
+          { numBalls: 12, maxSpeed: 5 },
+          { numBalls: 15, maxSpeed: 6 },
+        ],
+        normal: [
+          { numBalls: 7, maxSpeed: 3 },
+          { numBalls: 10, maxSpeed: 4 },
+          { numBalls: 12, maxSpeed: 5 },
+          { numBalls: 15, maxSpeed: 6 },
+          { numBalls: 20, maxSpeed: 8 },
+        ],
+        hard: [
+          { numBalls: 10, maxSpeed: 4 },
+          { numBalls: 15, maxSpeed: 6 },
+          { numBalls: 20, maxSpeed: 8 },
+          { numBalls: 25, maxSpeed: 10 },
+          { numBalls: 30, maxSpeed: 12 },
+        ],
+      },
     };
   },
   computed: {
@@ -98,7 +134,6 @@ export default {
   methods: {
     selectDifficulty(difficulty) {
       this.difficulty = difficulty;
-      this.setGameDifficulty();
     },
     selectBackground(background) {
       this.selectedMap = background;
@@ -122,46 +157,75 @@ export default {
       this.backgroundSelected = true;
     },
     async startGame() {
+      this.gameOver = false;
+      this.currentStage = 1;
       await this.setupCamera();
       await this.loadMoveNet();
       this.startCountdown();
+      this.initializeStage();
     },
-    setGameDifficulty() {
-      this.numBalls = 5;
-      if (this.difficulty === 'easy') {
-        this.spawnInterval = 1500;
-        this.maxSpeed = 2;
-      } else if (this.difficulty === 'normal') {
-        this.spawnInterval = 1000;
-        this.maxSpeed = 4;
-      } else if (this.difficulty === 'hard') {
-        this.spawnInterval = 700;
-        this.maxSpeed = 6;
-      }
+    initializeStage() {
+      const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
+      this.numBalls = stageSettings.numBalls;
+      this.maxSpeed = stageSettings.maxSpeed;
       this.initializeBalls();
+      this.startStageTimer();
+    },
+    startStageTimer() {
+      this.timeRemaining = 60;
+      clearInterval(this.stageTimer);
+
+      this.stageTimer = setInterval(() => {
+        this.timeRemaining -= 1;
+        if (this.timeRemaining <= 0) {
+          clearInterval(this.stageTimer);
+          this.nextStage();
+        }
+      }, 1000);
+    },
+    nextStage() {
+      if (this.currentStage < 5) {
+        this.currentStage++;
+        this.initializeStage();
+      } else {
+        this.endGame(true);
+      }
+    },
+    endGame(victory) {
+      this.animationRunning = false;
+      this.gameOver = true;
+      clearInterval(this.stageTimer);
+      if (victory) {
+        alert('모든 스테이지 완료! 축하합니다!');
+      } else {
+        alert('게임 오버! 다시 도전하세요.');
+      }
     },
     async setupCamera() {
       const video = this.$refs.video;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 }
+          video: { width: 1280, height: 720 },
         });
         video.srcObject = stream;
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
           video.onloadedmetadata = () => {
             video.play();
             resolve();
           };
         });
       } catch (error) {
-        console.error("카메라 접근 오류:", error);
-        alert("카메라에 접근할 수 없습니다. 권한을 확인하거나 HTTPS 환경에서 실행해주세요.");
+        console.error('카메라 접근 오류:', error);
+        alert('카메라에 접근할 수 없습니다. 권한을 확인하거나 HTTPS 환경에서 실행해주세요.');
       }
     },
     async loadMoveNet() {
       await tf.ready();
       const detectorConfig = { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING };
-      const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
+      const detector = await poseDetection.createDetector(
+        poseDetection.SupportedModels.MoveNet,
+        detectorConfig
+      );
       this.detectPose(detector);
     },
     async detectPose(detector) {
@@ -169,7 +233,7 @@ export default {
       const trackingCanvas = this.$refs.trackingCanvas;
 
       if (!trackingCanvas) {
-        console.error("Tracking Canvas가 로드되지 않았습니다.");
+        console.error('Tracking Canvas가 로드되지 않았습니다.');
         return;
       }
 
@@ -247,7 +311,7 @@ export default {
         speed: speed,
         image: image,
         rotation: 0,
-        rotationSpeed: Math.random() * 0.1 + 0.05
+        rotationSpeed: Math.random() * 0.1 + 0.05,
       });
     },
     gameLoop() {
@@ -295,17 +359,18 @@ export default {
         } else {
           const ballImg = new Image();
           ballImg.src = ball.image;
-          
+
           ctx.save();
           ctx.translate(ball.x, ball.y);
           ctx.rotate(ball.rotation);
-          ctx.drawImage(ballImg, -ball.radius, -ball.radius, ball.radius * 2, ball.radius * 2);
+          const ballSize = (this.fixedBallSize / 1000) * ctx.canvas.width;
+          ctx.drawImage(ballImg, -ballSize / 2, -ballSize / 2, ballSize, ballSize);
           ctx.restore();
         }
       });
     },
     drawKeypoints(ctx, keypoints) {
-      keypoints.forEach(point => {
+      keypoints.forEach((point) => {
         if (point.score > 0.5) {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
@@ -315,7 +380,9 @@ export default {
       });
     },
     drawSkeleton(ctx, keypoints) {
-      const adjacentKeyPoints = poseDetection.util.getAdjacentPairs(poseDetection.SupportedModels.MoveNet);
+      const adjacentKeyPoints = poseDetection.util.getAdjacentPairs(
+        poseDetection.SupportedModels.MoveNet
+      );
       ctx.strokeStyle = 'blue';
       adjacentKeyPoints.forEach(([i, j]) => {
         const kp1 = keypoints[i];
@@ -330,20 +397,23 @@ export default {
       });
     },
     checkCollision() {
-      this.balls.forEach(ball => {
-        const dx = ball.x - this.characterX - this.characterSize / 2;
-        const dy = ball.y - this.characterY - this.characterSize / 2;
+      this.balls.forEach((ball) => {
+        const characterCenterX = this.characterX + this.characterSize / 2;
+        const characterCenterY = this.characterY + this.characterSize / 2;
+
+        const dx = ball.x - characterCenterX;
+        const dy = ball.y - characterCenterY;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < ball.radius + this.characterSize / 2) {
-          console.log("게임 오버!");
           this.animationRunning = false;
+          this.gameOver = true;
         }
       });
     },
     updateCharacterPosition(keypoints) {
-      const leftShoulder = keypoints.find(point => point.name === 'left_shoulder');
-      const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
+      const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
+      const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
 
       if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
         const userX = (leftShoulder.x + rightShoulder.x) / 2;
@@ -358,11 +428,14 @@ export default {
         const newCharacterX = window.innerWidth / 2 + deltaX;
 
         this.characterX = Math.min(maxX, Math.max(minX, newCharacterX));
+
+        const newCharacterY = window.innerHeight - this.characterSize - 110;
+        this.characterY = newCharacterY;
       }
     },
     calculateCalories(keypoints) {
-      const leftShoulder = keypoints.find(point => point.name === 'left_shoulder');
-      const rightShoulder = keypoints.find(point => point.name === 'right_shoulder');
+      const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
+      const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
 
       if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
         const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
@@ -377,8 +450,8 @@ export default {
 
         this.lastKeypointPosition = currentPosition;
       }
-    }
-  }
+    },
+  },
 };
 </script>
 
@@ -406,7 +479,10 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
   z-index: 1;
 }
 
@@ -423,6 +499,20 @@ export default {
   z-index: 3;
 }
 
+.game-over-image {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  text-align: center;
+}
+
+.game-over-image img {
+  max-width: 80%;
+  height: auto;
+}
+
 .tracking-container {
   position: fixed;
   top: 0;
@@ -435,7 +525,8 @@ export default {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-video, #trackingCanvas {
+video,
+#trackingCanvas {
   width: 100%;
   height: 100%;
 }
@@ -448,7 +539,8 @@ video {
   position: absolute;
 }
 
-.countdown, .start-text {
+.countdown,
+.start-text {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -457,5 +549,18 @@ video {
   font-weight: bold;
   color: #ff0000;
   text-align: center;
+}
+
+.stage-info {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 10px;
+  border-radius: 10px;
+  z-index: 3;
 }
 </style>
