@@ -36,7 +36,11 @@
 
       <!-- 스테이지 및 타이머 -->
       <div class="stage-display" v-if="animationRunning && !gameOver">
-        STAGE {{ currentStage }}
+        <span>STAGE {{ currentStage }}</span>
+        <div class="coin-count">
+          <img src="@/assets/coin.gif" alt="Coin" class="coin-icon" />
+          <span>{{ coins }}</span>
+        </div>
       </div>
       <div class="timer-display" v-if="animationRunning && !gameOver">
         {{ timeRemaining }}초
@@ -80,6 +84,9 @@ export default {
     return {
       showCoin: false, // 코인 표시 여부
       coinGif: coinGif, // coinGif를 data에 등록
+      coins: 0, // 현재 보유 코인 수
+      stageCoins: 0, // 스테이지 클리어로 획득한 코인 수
+
       balls: [],
       animationRunning: false,
       gameOver: false,
@@ -201,17 +208,19 @@ export default {
     nextStage() {
       if (this.currentStage < 5) {
         this.animationRunning = false; // 게임 루프 일시 정지
+        this.stageCoins += 1; // 스테이지 클리어 시 코인 획득
+        this.coins += 1; // 보유 코인 업데이트
         this.displayCoin(); // 코인 애니메이션 표시
 
         setTimeout(() => {
-            this.showCoin = false; // 코인 숨기기
-            this.currentStage++; // 다음 스테이지로 이동
-            this.initializeStage(); // 스테이지 재설정
-            this.animationRunning = true; // 게임 루프 재개
-            this.gameLoop(); // 새로 시작
+          this.showCoin = false; // 코인 숨기기
+          this.currentStage++; // 다음 스테이지로 이동
+          this.initializeStage(); // 스테이지 재설정
+          this.animationRunning = true; // 게임 루프 재개
+          this.gameLoop(); // 새로 시작
         }, 4000); // 4초 후 다음 스테이지로 이동
       } else {
-          this.endGame(true); // 모든 스테이지 완료 처리
+        this.endGame(true); // 모든 스테이지 완료 처리
       }
     },
 
@@ -223,10 +232,22 @@ export default {
       this.animationRunning = false;
       this.gameOver = true;
       clearInterval(this.stageTimer);
+
       if (victory) {
         alert('모든 스테이지 완료! 축하합니다!');
       } else {
-        alert('게임 오버! 다시 도전하세요.');
+        const useCoin = confirm(
+          `게임 오버! 보유 코인: ${this.coins}개. 코인을 사용하여 스테이지 ${this.currentStage}부터 재시작하시겠습니까?`
+        );
+        if (useCoin && this.coins > 0) {
+          this.coins -= 1; // 코인 사용
+          this.gameOver = false;
+          this.initializeStage(); // 현재 스테이지 재시작
+          this.animationRunning = true;
+          this.gameLoop();
+        } else {
+          alert('게임을 다시 시작하려면 "게임 시작"을 눌러주세요.');
+        }
       }
     },
     async setupCamera() {
@@ -603,9 +624,25 @@ video {
   background-color: rgba(0, 0, 0, 0.7);
   padding: 10px 20px;
   border-radius: 10px;
-  z-index: 4;
-  text-align: center;
+  z-index: 5; /* z-index를 높게 설정 */
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
+
+.coin-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 24px;
+  color: #ffd700;
+}
+
+.coin-icon {
+  width: 30px;
+  height: auto;
+}
+
 
 .timer-display {
   position: fixed;
