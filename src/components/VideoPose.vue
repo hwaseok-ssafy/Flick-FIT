@@ -31,10 +31,12 @@
       </div>
       <div class="calories-burned">{{ caloriesBurned.toFixed(2) }} kcal</div>
 
-      <!-- 스테이지 및 타이머 정보 -->
-      <div class="stage-info" v-if="animationRunning && !gameOver">
-        <div>스테이지: {{ currentStage }}/5</div>
-        <div>남은 시간: {{ timeRemaining }}초</div>
+      <!-- 스테이지 및 타이머 -->
+      <div class="stage-display" v-if="animationRunning && !gameOver">
+        STAGE {{ currentStage }}
+      </div>
+      <div class="timer-display" v-if="animationRunning && !gameOver">
+        {{ timeRemaining }}초
       </div>
     </div>
 
@@ -564,4 +566,34 @@ video {
   border-radius: 10px;
   z-index: 3;
 }
+
+.stage-display {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 36px;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 10px;
+  z-index: 4;
+  text-align: center;
+}
+
+.timer-display {
+  position: fixed;
+  top: 70px;
+  right: 10px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 10px;
+  z-index: 4;
+  text-align: center;
+}
+
 </style>
