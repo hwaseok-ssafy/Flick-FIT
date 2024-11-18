@@ -24,6 +24,9 @@
     <div class="game-container" v-if="animationRunning || countdown !== null || gameOver">
       <canvas ref="gameCanvas"></canvas>
       <img :src="characterSrc" :style="characterStyle" alt="character" class="character" />
+      <div v-if="showCoin" class="coin-display">
+        <img :src="coinGif" alt="Coin" />
+      </div>
       <div v-if="countdown > 0" class="countdown">{{ countdown }}</div>
       <div v-else-if="countdown === 0 && !gameOver" class="start-text">Start!</div>
       <div v-if="gameOver" class="game-over-image">
@@ -66,11 +69,17 @@ import zzangGooImage from '@/assets/zzangGoo.png';
 import jadooImage from '@/assets/jadoo.png';
 import turtleImage from '@/assets/turtle.png';
 
+import coinGif from '@/assets/coin.gif';
+
+
+
 export default {
   name: 'VideoPose',
   data() {
     const characterSize = window.innerHeight * 0.12;
     return {
+      showCoin: false, // 코인 표시 여부
+      coinGif: coinGif, // coinGif를 data에 등록
       balls: [],
       animationRunning: false,
       gameOver: false,
@@ -168,31 +177,52 @@ export default {
       this.initializeStage();
     },
     initializeStage() {
-      const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
-      this.numBalls = stageSettings.numBalls;
-      this.maxSpeed = stageSettings.maxSpeed;
-      this.initializeBalls();
-      this.startStageTimer();
+        const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
+        this.numBalls = stageSettings.numBalls;
+        this.maxSpeed = stageSettings.maxSpeed;
+        this.initializeBalls(); // 공 배열 초기화 및 생성
+        this.startStageTimer(); // 스테이지 타이머 시작
     },
     startStageTimer() {
-      this.timeRemaining = 60;
-      clearInterval(this.stageTimer);
+      this.timeRemaining = 60; // 스테이지 시간 초기화
+      clearInterval(this.stageTimer); // 기존 타이머 정리
 
       this.stageTimer = setInterval(() => {
-        this.timeRemaining -= 1;
-        if (this.timeRemaining <= 0) {
-          clearInterval(this.stageTimer);
-          this.nextStage();
-        }
+          this.timeRemaining -= 1;
+          if (this.timeRemaining <= 0) {
+              clearInterval(this.stageTimer);
+              this.nextStage(); // 시간이 끝나면 다음 스테이지로 이동
+          }
       }, 1000);
     },
     nextStage() {
-      if (this.currentStage < 5) {
-        this.currentStage++;
-        this.initializeStage();
-      } else {
-        this.endGame(true);
-      }
+        if (this.currentStage < 5) {
+            // 게임 루프 일시 중단
+            this.animationRunning = false;
+            
+            // 코인 표시
+            this.displayCoin();
+
+            setTimeout(() => {
+                // 코인 숨기기
+                this.showCoin = false;
+
+                // 다음 스테이지 초기화
+                this.currentStage++;
+                this.initializeStage();
+
+                // 게임 루프 재개
+                this.animationRunning = true;
+            }, 4000); // 4초 후 실행
+        } else {
+            // 모든 스테이지 완료
+            this.endGame(true);
+        }
+    },
+
+    displayCoin() {
+      console.log("coin")
+      this.showCoin = true; // 코인 표시 활성화
     },
     endGame(victory) {
       this.animationRunning = false;
@@ -455,7 +485,10 @@ export default {
       }
     },
   },
+
 };
+
+
 </script>
 
 <style scoped>
@@ -595,5 +628,42 @@ video {
   z-index: 4;
   text-align: center;
 }
+
+.coin-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999; /* 다른 요소보다 높게 설정 */
+    animation: fade-in-out 2s ease-in-out forwards;
+}
+
+.coin-display img {
+    width: 600px; /* 원하는 코인 크기 설정 */
+    height: auto;
+    animation: spin 3s linear infinite; /* 회전 효과 */
+}
+
+@keyframes fade-in-out {
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
 
 </style>
