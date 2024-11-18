@@ -104,7 +104,7 @@ export default {
       fixedBallSize: 50,
       currentStage: 1,
       stageTimer: null,
-      timeRemaining: 60,
+      timeRemaining: 20,
       stageConfig: {
         easy: [
           { numBalls: 5, maxSpeed: 2 },
@@ -177,11 +177,14 @@ export default {
       this.initializeStage();
     },
     initializeStage() {
-        const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
-        this.numBalls = stageSettings.numBalls;
-        this.maxSpeed = stageSettings.maxSpeed;
-        this.initializeBalls(); // 공 배열 초기화 및 생성
-        this.startStageTimer(); // 스테이지 타이머 시작
+      const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
+      this.numBalls = stageSettings.numBalls; // 스테이지별 공 개수 설정
+      this.maxSpeed = stageSettings.maxSpeed; // 스테이지별 최대 속도 설정
+      this.spawnInterval = 1000 / this.maxSpeed; // 속도에 비례하여 스폰 주기 설정
+
+      this.balls = []; // 공 배열 초기화
+      this.initializeBalls(); // 새로운 공 배열 생성
+      this.startStageTimer(); // 스테이지 타이머 시작
     },
     startStageTimer() {
       this.timeRemaining = 60; // 스테이지 시간 초기화
@@ -196,28 +199,20 @@ export default {
       }, 1000);
     },
     nextStage() {
-        if (this.currentStage < 5) {
-            // 게임 루프 일시 중단
-            this.animationRunning = false;
-            
-            // 코인 표시
-            this.displayCoin();
+      if (this.currentStage < 5) {
+        this.animationRunning = false; // 게임 루프 일시 정지
+        this.displayCoin(); // 코인 애니메이션 표시
 
-            setTimeout(() => {
-                // 코인 숨기기
-                this.showCoin = false;
-
-                // 다음 스테이지 초기화
-                this.currentStage++;
-                this.initializeStage();
-
-                // 게임 루프 재개
-                this.animationRunning = true;
-            }, 4000); // 4초 후 실행
-        } else {
-            // 모든 스테이지 완료
-            this.endGame(true);
-        }
+        setTimeout(() => {
+            this.showCoin = false; // 코인 숨기기
+            this.currentStage++; // 다음 스테이지로 이동
+            this.initializeStage(); // 스테이지 재설정
+            this.animationRunning = true; // 게임 루프 재개
+            this.gameLoop(); // 새로 시작
+        }, 4000); // 4초 후 다음 스테이지로 이동
+      } else {
+          this.endGame(true); // 모든 스테이지 완료 처리
+      }
     },
 
     displayCoin() {
@@ -321,30 +316,30 @@ export default {
     spawnBall() {
       if (this.balls.length >= this.numBalls) return;
 
-      let image, speed;
+      const canvasWidth = window.innerWidth;
+      const ballX = Math.random() * (canvasWidth - this.fixedBallSize); // 공의 x 좌표 설정
+      const ballSpeed = Math.random() * this.maxSpeed + 2; // 공 속도 설정
+
+      let ballImage;
       if (this.selectedMap === 'ocean') {
-        image = trashImage;
-        speed = Math.random() * this.maxSpeed + 2;
+          ballImage = trashImage; // 바다 배경에서는 쓰레기
       } else if (this.selectedMap === 'home') {
-        const pepperImages = [yellowPepperImage, greenPepperImage];
-        image = pepperImages[Math.floor(Math.random() * pepperImages.length)];
-        speed = Math.random() * this.maxSpeed + 3;
+          const pepperImages = [yellowPepperImage, greenPepperImage];
+          ballImage = pepperImages[Math.floor(Math.random() * pepperImages.length)];
       } else if (this.selectedMap === 'default') {
-        image = meteoriteImage;
-        speed = Math.random() * this.maxSpeed + 1;
+          ballImage = meteoriteImage; // 기본 배경에서는 운석
       } else {
-        image = ballImage;
-        speed = Math.random() * this.maxSpeed + 2;
+          ballImage = ballImageSrc; // 기본 공
       }
 
       this.balls.push({
-        x: Math.random() * window.innerWidth,
-        y: 0,
-        radius: this.fixedBallSize,
-        speed: speed,
-        image: image,
-        rotation: 0,
-        rotationSpeed: Math.random() * 0.1 + 0.05,
+          x: ballX,
+          y: 0,
+          radius: this.fixedBallSize,
+          speed: ballSpeed,
+          image: ballImage,
+          rotation: 0,
+          rotationSpeed: Math.random() * 0.1 + 0.05, // 공 회전 속도
       });
     },
     gameLoop() {
@@ -356,25 +351,22 @@ export default {
       gameCanvas.height = window.innerHeight;
 
       const bgImage = new Image();
-      bgImage.src = this.bgImageSrc;
+      bgImage.src = this.bgImageSrc; // 배경 이미지 적용
       ctx.drawImage(bgImage, 0, 0, gameCanvas.width, gameCanvas.height);
 
       if (this.animationRunning) {
-        if (!this.spawnTimer) {
-          this.spawnTimer = setInterval(() => this.spawnBall(), this.spawnInterval);
-        }
+          if (!this.spawnTimer) {
+              clearInterval(this.spawnTimer); // 이전 스폰 타이머 초기화
+              this.spawnTimer = setInterval(() => this.spawnBall(), this.spawnInterval);
+          }
 
-        this.updateBallsPosition(ctx);
-        this.checkCollision();
+          this.updateBallsPosition(ctx); // 공 위치 업데이트
+          this.checkCollision(); // 충돌 체크
 
-        if (this.currentLevel < this.maxLevel && this.balls.length === 0) {
-          this.advanceLevel();
-        }
-
-        requestAnimationFrame(this.gameLoop);
+          requestAnimationFrame(() => this.gameLoop());
       } else {
-        clearInterval(this.spawnTimer);
-        this.spawnTimer = null;
+          clearInterval(this.spawnTimer); // 애니메이션 정지 시 타이머 초기화
+          this.spawnTimer = null;
       }
     },
     advanceLevel() {
