@@ -706,6 +706,7 @@ h1 {
  max-width: 50%;
  height: auto;
  margin-bottom: 20px;
+ transform: translateX(150px); /* 20px만큼 오른쪽으로 이동 */
 }
 
 .game-over-buttons {
