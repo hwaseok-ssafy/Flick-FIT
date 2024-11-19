@@ -294,25 +294,45 @@ export default {
   },
 
    restartGame() {
-     console.log('처음부터 다시 시작 버튼 호출됨');
-     this.currentStage = 1;
-     this.gameOver = false;
-     this.animationRunning = true;
-     this.startGame();
+    console.log('처음부터 다시 시작 버튼 호출됨');
+    this.currentStage = 1; // 스테이지를 1로 초기화
+    this.coins = 0; // 코인 초기화 (필요한 경우)
+    this.stageCoins = 0; // 스테이지별 코인 초기화
+    this.gameOver = false; // 게임 오버 상태 초기화
+    this.animationRunning = false; // 애니메이션 초기화
+    this.timeRemaining = 20; // 초기 타이머 설정
+    clearInterval(this.stageTimer); // 기존 타이머 정리
+    this.stageTimer = null; // 타이머 초기화
+    this.initializeStage(); // 스테이지 초기화
+    this.startCountdown(); // 카운트다운 재시작
    },
    restartFromCurrentStage() {
-     console.log('현재 스테이지 재도전 버튼 호출됨');
-     let requiredCoins = this.difficulty === 'easy' ? 1 : this.difficulty === 'normal' ? 2 : 3;
+    console.log('현재 스테이지 재도전 버튼 호출됨');
+    // 난이도에 따른 필요한 코인 계산
+    const requiredCoins = this.difficulty === 'easy' ? 1 : this.difficulty === 'normal' ? 2 : 3;
 
-     if (this.coins >= requiredCoins) {
-       this.coins -= requiredCoins;
-       this.gameOver = false;
-       this.animationRunning = true;
-       this.startGame();
-     } else {
-       alert(`코인이 부족합니다. 필요한 코인: ${requiredCoins}, 현재 보유 코인: ${this.coins}`);
-     }
-   },
+    // 코인 확인
+    if (this.coins >= requiredCoins) {
+      // 필요한 코인 차감
+      this.coins -= requiredCoins;
+
+      // 게임 오버 상태 해제 및 애니메이션 초기화
+      this.gameOver = false;
+      this.animationRunning = false;
+
+      // 타이머 초기화
+      clearInterval(this.stageTimer);
+      this.timeRemaining = 20; // 스테이지 시간 초기화
+      this.stageTimer = null;
+
+      // 스테이지 재설정
+      this.initializeStage(); // 현재 스테이지 상태를 초기화
+      this.startCountdown(); // 카운트다운 시작
+    } else {
+      // 코인 부족 메시지
+      alert(`코인이 부족합니다. 필요한 코인: ${requiredCoins}, 현재 보유 코인: ${this.coins}`);
+    }
+  },
    exitGame() {
      console.log('게임 종료 버튼 호출됨');
      this.animationRunning = false;
@@ -699,45 +719,55 @@ h1 {
 }
 
 .game-over-container {
- position: fixed;
- top: 0;
- left: 0;
- width: 100vw;
- height: 100vh;
- background-color: rgba(0, 0, 0, 0.7); /* 반투명 배경 */
- display: flex;
- flex-direction: column;
- justify-content: center;
- align-items: center;
- z-index: 100;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8); /* 반투명 배경 */
+  z-index: 1000; /* 항상 다른 요소 위에 표시 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .game-over-image img {
- max-width: 50%;
- height: auto;
- margin-bottom: 20px;
- transform: translateX(150px); /* 20px만큼 오른쪽으로 이동 */
+  max-width: 70%; /* 이미지 크기를 화면 너비에 비례하도록 설정 */
+  height: auto;
+  margin-bottom: 2vh; /* 이미지와 버튼 간 여백 추가 */
+  transform: none; /* 기존의 불필요한 이동 제거 */
 }
 
 .game-over-buttons {
- display: flex;
- gap: 20px;
+  display: flex;
+  flex-direction: column; /* 버튼을 세로로 정렬 */
+  gap: 1.5vh;
+  width: auto;
+  text-align: center;
+  pointer-events: auto; /* 클릭 이벤트 허용 */
+  z-index: 1001; /* 버튼 클릭 우선권 보장 */
 }
 
 .game-over-buttons button {
- padding: 10px 20px;
- font-size: 18px;
- font-weight: bold;
- color: white;
- background-color: #ff4500;
- border: none;
- border-radius: 5px;
- cursor: pointer;
- transition: background-color 0.3s;
+  padding: 1.5vh 2vw; /* 화면 크기에 비례 */
+  width: 20%; /* 버튼 너비를 화면에 비례 */
+  min-width: 100px; /* 최소 크기 */
+  height: auto;
+  font-size: 2vh; /* 글자 크기 화면에 비례 */
+  border-radius: 1vh;
+  background-color: #ff4500;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+  pointer-events: auto; /* 클릭 이벤트 허용 */
+  z-index: 1002; /* 항상 버튼이 상위에 위치 */
 }
 
 .game-over-buttons button:hover {
- background-color: #ff6347;
+  background-color: #ff6347;
+  transform: scale(1.05); /* 버튼 크기 확대 */
 }
 
 
@@ -892,5 +922,20 @@ video {
    }
 }
 
+@media (max-width: 768px) {
+  .game-over-buttons {
+    gap: 1vh; /* 버튼 간격을 더 줄임 */
+    width: 90%;
+  }
+
+  .game-over-buttons button {
+    padding: 1vh 1.5vw; /* 버튼 크기를 더 작게 조정 */
+    font-size: 1.8vh; /* 글꼴 크기 조정 */
+  }
+
+  .game-over-container {
+    padding: 5vh 0;
+  }
+}
 
 </style>
