@@ -38,9 +38,10 @@
    <div class="game-container" v-if="animationRunning || countdown !== null || gameOver">
      <canvas ref="gameCanvas"></canvas>
      <img :src="characterSrc" :style="characterStyle" alt="character" class="character" />
-     <div v-if="showCoin" class="coin-display">
-       <img :src="coinGif" alt="Coin" />
-     </div>
+     <!-- 코인 애니메이션 표시 -->
+    <div v-if="showCoin && !gameOver" class="coin-display">
+      <img :src="coinGif" alt="Coin" />
+    </div>
      <div v-if="countdown > 0" class="countdown">{{ countdown }}</div>
      <div v-else-if="countdown === 0 && !gameOver" class="start-text">Start!</div>
      <!-- 게임 오버 화면 -->
@@ -249,41 +250,48 @@ export default {
      }, 1000);
    },
    nextStage() {
-     if (this.currentStage < 5) {
-       this.animationRunning = false; // 게임 루프 일시 정지
-       this.stageCoins += 1; // 스테이지 클리어 시 코인 획득
-       this.coins += 1; // 보유 코인 업데이트
-       this.displayCoin(); // 코인 애니메이션 표시
+    if (this.gameOver) return; // 게임 종료 상태라면 실행 중단
 
-       setTimeout(() => {
-         this.showCoin = false; // 코인 숨기기
-         this.currentStage++; // 다음 스테이지로 이동
-         this.initializeStage(); // 스테이지 재설정
-         this.animationRunning = true; // 게임 루프 재개
-         this.gameLoop(); // 새로 시작
-       }, 4000); // 4초 후 다음 스테이지로 이동
-     } else {
-       this.endGame(true); // 모든 스테이지 완료 처리
-     }
-   },
+    if (this.currentStage < 5) {
+      this.animationRunning = false; // 게임 루프 일시 정지
+      this.stageCoins += 1; // 스테이지 클리어 시 코인 획득
+      this.coins += 1; // 보유 코인 업데이트
+      this.displayCoin(); // 코인 애니메이션 표시
+
+      setTimeout(() => {
+        this.showCoin = false; // 코인 숨기기
+        this.currentStage++; // 다음 스테이지로 이동
+        this.initializeStage(); // 스테이지 재설정
+        this.animationRunning = true; // 게임 루프 재개
+        this.gameLoop(); // 새로 시작
+      }, 4000); // 4초 후 다음 스테이지로 이동
+    } else {
+      this.endGame(true); // 모든 스테이지 완료 처리
+    }
+  },
 
    displayCoin() {
-     console.log("coin")
-     this.showCoin = true; // 코인 표시 활성화
-   },
+    console.log("coin");
+    this.showCoin = true; // 코인 표시 활성화
 
-   endGame(victory) {
-     this.animationRunning = false;
-     clearInterval(this.stageTimer);
-     this.gameOver = true;
-     console.log('게임 오버 상태:', this.gameOver);
+    setTimeout(() => {
+      this.showCoin = false; // 2초 후 코인 숨기기
+    }, 4000); // 코인이 표시될 시간 (2초)
+  },
 
-     if (victory) {
-       alert('모든 스테이지 완료! 축하합니다!');
-     } else {
-       alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
-     }
-   },
+  endGame(victory) {
+    this.animationRunning = false;
+    clearInterval(this.stageTimer);
+    this.gameOver = true;
+    this.showCoin = false; // 코인 표시 비활성화
+    console.log('게임 오버 상태:', this.gameOver);
+
+    if (victory) {
+      alert('모든 스테이지 완료! 축하합니다!');
+    } else {
+      alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
+    }
+  },
 
    restartGame() {
      console.log('처음부터 다시 시작 버튼 호출됨');
@@ -525,45 +533,47 @@ export default {
      });
    },
    updateCharacterPosition(keypoints) {
-     const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
-     const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
+    if (this.gameOver) return; // 게임 오버 시 실행 중단
+    const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
+    const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
 
-     if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-       const userX = (leftShoulder.x + rightShoulder.x) / 2;
+    if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
+      const userX = (leftShoulder.x + rightShoulder.x) / 2;
 
-       if (this.initialUserX === null) {
-         this.initialUserX = userX;
-       }
+      if (this.initialUserX === null) {
+        this.initialUserX = userX;
+      }
 
-       const deltaX = -(userX - this.initialUserX) * 3;
-       const maxX = window.innerWidth - this.characterSize;
-       const minX = 0;
-       const newCharacterX = window.innerWidth / 2 + deltaX;
+      const deltaX = -(userX - this.initialUserX) * 3;
+      const maxX = window.innerWidth - this.characterSize;
+      const minX = 0;
+      const newCharacterX = window.innerWidth / 2 + deltaX;
 
-       this.characterX = Math.min(maxX, Math.max(minX, newCharacterX));
+      this.characterX = Math.min(maxX, Math.max(minX, newCharacterX));
 
-       const newCharacterY = window.innerHeight - this.characterSize - 110;
-       this.characterY = newCharacterY;
-     }
-   },
-   calculateCalories(keypoints) {
-     const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
-     const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
+      const newCharacterY = window.innerHeight - this.characterSize - 110;
+      this.characterY = newCharacterY;
+    }
+  },
+  calculateCalories(keypoints) {
+    if (this.gameOver) return; // 게임 오버 시 실행 중단
+    const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
+    const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
 
-     if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-       const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
+    if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
+      const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
 
-       if (this.lastKeypointPosition !== null) {
-         const delta = Math.abs(currentPosition - this.lastKeypointPosition);
+      if (this.lastKeypointPosition !== null) {
+        const delta = Math.abs(currentPosition - this.lastKeypointPosition);
 
-         if (delta > 3) {
-           this.caloriesBurned += delta * 0.0001;
-         }
-       }
+        if (delta > 3) {
+          this.caloriesBurned += delta * 0.0001;
+        }
+      }
 
-       this.lastKeypointPosition = currentPosition;
-     }
-   },
+      this.lastKeypointPosition = currentPosition;
+    }
+  },
  },
 
 };
@@ -706,6 +716,7 @@ h1 {
  max-width: 50%;
  height: auto;
  margin-bottom: 20px;
+ transform: translateX(150px); /* 20px만큼 오른쪽으로 이동 */
 }
 
 .game-over-buttons {
