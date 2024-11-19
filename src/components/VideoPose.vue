@@ -56,6 +56,16 @@
        </div>
      </div>
 
+     <div v-if="showPauseMenu" class="pause-menu-overlay">
+      <div class="pause-menu">
+        <h2>Menu</h2>
+        <button @click="togglePause">Continue</button>
+        <button @click="changeMode">Mode</button>
+        <button @click="changeTheme">Theme</button>
+        <button @click="restartFromStageOne">Restart</button>
+      </div>
+    </div>
+
      <div class="calories-burned">{{ caloriesBurned.toFixed(2) }} kcal</div>
 
      <!-- 스테이지 및 타이머 -->
@@ -72,10 +82,11 @@
    </div>
 
    <!-- MoveNet 인식 화면 (좌측 상단 고정) -->
-  <div class="tracking-container" v-show="backgroundSelected && difficultySelected && !gameOver">
+  <div class="tracking-container" v-show="backgroundSelected && difficultySelected && !gameOver && !isPaused">
     <video ref="video" autoplay playsinline></video>
     <canvas ref="trackingCanvas"></canvas>
   </div>
+
  </div>
 </template>
 
@@ -111,6 +122,9 @@ export default {
      coins: 0, // 현재 보유 코인 수
      stageCoins: 0, // 스테이지 클리어로 획득한 코인 수
 
+     isPaused: false, // 일시정지 상태
+     showPauseMenu: false, // 일시정지 메뉴 표시 여부
+
      balls: [],
      animationRunning: false,
      gameOver: false,
@@ -137,7 +151,8 @@ export default {
      fixedBallSize: 50,
      currentStage: 1,
      stageTimer: null,
-     timeRemaining: 20,
+     timeRemaining: 60,
+     isTimerPaused: false, // 타이머가 일시정지 상태인지 여부
      stageConfig: {
        easy: [
          { numBalls: 5, maxSpeed: 2 },
@@ -238,17 +253,35 @@ export default {
      this.startStageTimer(); // 스테이지 타이머 시작
    },
    startStageTimer() {
-     this.timeRemaining = 60; // 스테이지 시간 초기화
-     clearInterval(this.stageTimer); // 기존 타이머 정리
+    if (this.isTimerPaused) {
+      // 타이머가 일시정지 상태라면, 재개
+      this.isTimerPaused = false;
+    } else {
+      // 새로 시작
+      this.timeRemaining = 60; // 초기 시간 설정 (필요시 조정)
+    }
 
-     this.stageTimer = setInterval(() => {
-         this.timeRemaining -= 1;
-         if (this.timeRemaining <= 0) {
-             clearInterval(this.stageTimer);
-             this.nextStage(); // 시간이 끝나면 다음 스테이지로 이동
-         }
-     }, 1000);
-   },
+    clearInterval(this.stageTimer); // 기존 타이머 클리어
+
+    this.stageTimer = setInterval(() => {
+      if (this.timeRemaining > 0) {
+        this.timeRemaining -= 1; // 1초씩 감소
+      } else {
+        clearInterval(this.stageTimer);
+        this.nextStage(); // 시간이 끝나면 다음 스테이지로 이동
+      }
+    }, 1000);
+  },
+
+  pauseStageTimer() {
+    // 타이머 일시정지
+    if (this.stageTimer) {
+      clearInterval(this.stageTimer);
+      this.isTimerPaused = true; // 타이머가 일시정지 상태임을 기록
+    }
+  },
+
+
    nextStage() {
     if (this.gameOver) return; // 게임 종료 상태라면 실행 중단
 
@@ -342,6 +375,49 @@ export default {
      this.backgroundSelected = false;
      alert('게임 선택 화면으로 돌아갑니다.');
    },
+
+   togglePause() {
+    if (this.gameOver) return; // 게임 오버 상태에서는 무시
+
+    this.isPaused = !this.isPaused; // 일시정지 상태 토글
+    this.showPauseMenu = this.isPaused; // 메뉴 표시 상태 동기화
+
+    if (this.isPaused) {
+      this.animationRunning = false; // 애니메이션 중지
+      this.pauseStageTimer(); // 타이머 일시정지
+    } else {
+      this.animationRunning = true; // 애니메이션 재개
+      this.startStageTimer(); // 타이머 재개
+      this.gameLoop(); // 게임 루프 재개
+    }
+  },
+
+
+    handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        console.log('ESC 키 눌림'); // 디버깅용 로그
+        this.togglePause();
+      }
+    },
+  changeMode() {
+    this.showPauseMenu = false; // 메뉴 닫기
+    this.isPaused = false;
+    this.difficultySelected = false; // 모드 선택으로 돌아감
+    this.togglePause(); // 일시정지 해제
+  },
+
+  changeTheme() {
+    this.showPauseMenu = false; // 메뉴 닫기
+    this.isPaused = false;
+    this.backgroundSelected = false; // 테마 선택으로 돌아감
+    this.togglePause(); // 일시정지 해제
+  },
+
+  restartFromStageOne() {
+    this.showPauseMenu = false; // 메뉴 닫기
+    this.isPaused = false;
+    this.restartGame(); // 스테이지 1로 이동
+  },
 
 
 
@@ -595,6 +671,13 @@ export default {
     }
   },
  },
+
+ mounted() {
+    window.addEventListener('keydown', this.handleKeyDown);
+  },
+  beforeDestroy() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+  },
 
 };
 
@@ -892,6 +975,53 @@ video {
    height: auto;
    animation: spin 3s linear infinite; /* 회전 효과 */
 }
+
+.pause-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.pause-menu {
+  background-color: #fff;
+  padding: 20px 40px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.pause-menu h2 {
+  margin-bottom: 20px;
+  font-size: 24px;
+  color: #333;
+}
+
+.pause-menu button {
+  display: block;
+  width: 200px;
+  margin: 10px auto;
+  padding: 10px;
+  font-size: 18px;
+  color: #fff;
+  background-color: #007bff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pause-menu button:hover {
+  background-color: #0056b3;
+}
+
+
 
 @keyframes fade-in-out {
    0% {
