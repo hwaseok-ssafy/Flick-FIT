@@ -1,23 +1,37 @@
 <template>
-  <div class="container">
-    <h1>MoveNet 실시간 자세 인식 및 게임 화면</h1>
+   <div class="container">
+    <h1>Flick-FIT</h1>
 
-    <!-- 난이도 및 배경 선택 -->
-    <div v-if="!animationRunning && countdown === null && !gameOver" class="settings-selection">
-      <h2>난이도 선택</h2>
-      <div>
-        <button @click="selectDifficulty('easy')">쉬움</button>
-        <button @click="selectDifficulty('normal')">보통</button>
-        <button @click="selectDifficulty('hard')">어려움</button>
+    <!-- 배경 선택 -->
+    <div v-if="!backgroundSelected && !difficultySelected" class="settings-container">
+      <div class="overlay">
+        <h2>테마 선택</h2>
+        <div class="button-group">
+          <button @click="selectBackground('default')">해변</button>
+          <button @click="selectBackground('soccer')">자두랑 축구</button>
+          <button @click="selectBackground('ocean')">바다이야기</button>
+          <button @click="selectBackground('home')">떡잎마을</button>
+        </div>
       </div>
-      <h2>배경 선택</h2>
-      <div>
-        <button @click="selectBackground('default')">해변</button>
-        <button @click="selectBackground('soccer')">자두랑 축구</button>
-        <button @click="selectBackground('ocean')">바다이야기</button>
-        <button @click="selectBackground('home')">떡잎마을</button>
+    </div>
+
+    <!-- 난이도 선택 -->
+    <div v-else-if="backgroundSelected && !difficultySelected" class="settings-container">
+      <div class="overlay">
+        <h2>모드 선택</h2>
+        <div class="button-group">
+          <button @click="selectDifficulty('easy')">쉬움</button>
+          <button @click="selectDifficulty('normal')">보통</button>
+          <button @click="selectDifficulty('hard')">어려움</button>
+        </div>
       </div>
-      <button @click="startGame" :disabled="!difficulty || !backgroundSelected">게임 시작</button>
+    </div>
+
+        <!-- 게임 시작 -->
+    <div v-else class="settings-container">
+      <div class="overlay">
+        <button class="start-button" @click="startGame">게임 시작</button>
+      </div>
     </div>
 
     <!-- 게임 화면 -->
@@ -29,9 +43,18 @@
       </div>
       <div v-if="countdown > 0" class="countdown">{{ countdown }}</div>
       <div v-else-if="countdown === 0 && !gameOver" class="start-text">Start!</div>
-      <div v-if="gameOver" class="game-over-image">
-        <img src="@/assets/GameOver.png" alt="Game Over" />
+      <!-- 게임 오버 화면 -->
+      <div v-show="gameOver" class="game-over-container">
+        <div class="game-over-image">
+          <img src="@/assets/GameOver.png" alt="Game Over" />
+        </div>
+        <div class="game-over-buttons">
+          <button @click="restartFromCurrentStage">Retry</button>
+          <button @click="restartGame">Again Play</button>
+          <button @click="exitGame">Exit</button>
+        </div>
       </div>
+
       <div class="calories-burned">{{ caloriesBurned.toFixed(2) }} kcal</div>
 
       <!-- 스테이지 및 타이머 -->
@@ -48,7 +71,7 @@
     </div>
 
     <!-- MoveNet 인식 화면 (좌측 상단 고정) -->
-    <div class="tracking-container">
+    <div class="tracking-container" v-if="backgroundSelected && difficultySelected">
       <video ref="video" autoplay playsinline></video>
       <canvas ref="trackingCanvas"></canvas>
     </div>
@@ -100,10 +123,12 @@ export default {
       currentLevel: 1,
       maxLevel: 10,
       difficulty: '',
+      characterSrc: "",
       initialUserX: null,
       ballImageSrc: ballImage,
       bgImageSrc: bgImage,
       backgroundSelected: false,
+      difficultySelected: false,
       selectedMap: 'default',
       caloriesBurned: 0,
       lastKeypointPosition: null,
@@ -153,6 +178,8 @@ export default {
   methods: {
     selectDifficulty(difficulty) {
       this.difficulty = difficulty;
+      this.setGameDifficulty();
+      this.difficultySelected = true;
     },
     selectBackground(background) {
       this.selectedMap = background;
@@ -183,6 +210,22 @@ export default {
       this.startCountdown();
       this.initializeStage();
     },
+    
+    setGameDifficulty() {
+      this.numBalls = 5;
+      if (this.difficulty === 'easy') {
+        this.spawnInterval = 1500;
+        this.maxSpeed = 2;
+      } else if (this.difficulty === 'normal') {
+        this.spawnInterval = 1000;
+        this.maxSpeed = 4;
+      } else if (this.difficulty === 'hard') {
+        this.spawnInterval = 700;
+        this.maxSpeed = 6;
+      }
+      this.initializeBalls();
+    },
+
     initializeStage() {
       const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
       this.numBalls = stageSettings.numBalls; // 스테이지별 공 개수 설정
@@ -228,28 +271,52 @@ export default {
       console.log("coin")
       this.showCoin = true; // 코인 표시 활성화
     },
+
     endGame(victory) {
       this.animationRunning = false;
-      this.gameOver = true;
       clearInterval(this.stageTimer);
+      this.gameOver = true;
+      console.log('게임 오버 상태:', this.gameOver);
 
       if (victory) {
         alert('모든 스테이지 완료! 축하합니다!');
       } else {
-        const useCoin = confirm(
-          `게임 오버! 보유 코인: ${this.coins}개. 코인을 사용하여 스테이지 ${this.currentStage}부터 재시작하시겠습니까?`
-        );
-        if (useCoin && this.coins > 0) {
-          this.coins -= 1; // 코인 사용
-          this.gameOver = false;
-          this.initializeStage(); // 현재 스테이지 재시작
-          this.animationRunning = true;
-          this.gameLoop();
-        } else {
-          alert('게임을 다시 시작하려면 "게임 시작"을 눌러주세요.');
-        }
+        alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
       }
     },
+
+    restartGame() {
+      console.log('처음부터 다시 시작 버튼 호출됨');
+      this.currentStage = 1;
+      this.gameOver = false;
+      this.animationRunning = true;
+      this.startGame();
+    },
+    restartFromCurrentStage() {
+      console.log('현재 스테이지 재도전 버튼 호출됨');
+      let requiredCoins = this.difficulty === 'easy' ? 1 : this.difficulty === 'normal' ? 2 : 3;
+
+      if (this.coins >= requiredCoins) {
+        this.coins -= requiredCoins;
+        this.gameOver = false;
+        this.animationRunning = true;
+        this.startGame();
+      } else {
+        alert(`코인이 부족합니다. 필요한 코인: ${requiredCoins}, 현재 보유 코인: ${this.coins}`);
+      }
+    },
+    exitGame() {
+      console.log('게임 종료 버튼 호출됨');
+      this.animationRunning = false;
+      this.gameOver = false;
+      this.countdown = null;
+      this.difficulty = '';
+      this.backgroundSelected = false;
+      alert('게임 선택 화면으로 돌아갑니다.');
+    },
+
+
+
     async setupCamera() {
       const video = this.$refs.video;
       try {
@@ -420,7 +487,7 @@ export default {
         if (point.score > 0.5) {
           ctx.beginPath();
           ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
-          ctx.fillStyle = 'red';
+          ctx.fillStyle = 'rgba(255, 0, 0, 0)';
           ctx.fill();
         }
       });
@@ -429,7 +496,7 @@ export default {
       const adjacentKeyPoints = poseDetection.util.getAdjacentPairs(
         poseDetection.SupportedModels.MoveNet
       );
-      ctx.strokeStyle = 'blue';
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0)';
       adjacentKeyPoints.forEach(([i, j]) => {
         const kp1 = keypoints[i];
         const kp2 = keypoints[j];
@@ -505,21 +572,70 @@ export default {
 </script>
 
 <style scoped>
-.container {
-  position: relative;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
-.settings-selection {
-  text-align: center;
-  margin: 20px;
+/* 기본 컨테이너 스타일 */
+.container {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
 }
 
-.settings-selection button {
-  margin: 5px;
-  padding: 10px 20px;
-  font-size: 16px;
-  cursor: pointer;
+/* 제목 스타일 */
+h1 {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 55px;
+  color: #F6F9A2;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.settings-container {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('@/assets/BgBall.jpg') no-repeat center center; /* 가운데 정렬 */
+  background-size: cover; /* 배경 크기를 화면에 맞게 조정 */
+}
+
+/* 오버레이 스타일 */
+.overlay {
+  text-align: center;
+  background: rgb(255, 255, 255);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* 제목 스타일 */
+.overlay h2 {
+  font-size: 28px;
+  color: #000000;
+  margin-bottom: 20px;
+  font: bold;
 }
 
 .game-container {
@@ -528,10 +644,7 @@ export default {
   left: 0;
   width: 100vw;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  background-color: #f0f0f0;
   z-index: 1;
 }
 
@@ -548,19 +661,74 @@ export default {
   z-index: 3;
 }
 
-.game-over-image {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 5;
-  text-align: center;
+/* 버튼 그룹 */
+.button-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* 버튼 스타일 */
+.button-group button {
+  background-color: #ffd700;
+  border: none;
+  border-radius: 10px;
+  color: #000;
+  font-size: 18px;
+  font-weight: bold;
+  margin: 10px;
+  padding: 15px 30px;
+  cursor: pointer;
+  transition: transform 0.3s, background-color 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.button-group button:hover {
+  transform: scale(1.1);
+  background-color: #ffa500;
+}
+
+.game-over-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.7); /* 반투명 배경 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
 }
 
 .game-over-image img {
-  max-width: 80%;
+  max-width: 50%;
   height: auto;
+  margin-bottom: 20px;
 }
+
+.game-over-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+.game-over-buttons button {
+  padding: 10px 20px;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  background-color: #ff4500;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.game-over-buttons button:hover {
+  background-color: #ff6347;
+}
+
 
 .tracking-container {
   position: fixed;
@@ -572,6 +740,25 @@ export default {
   border: 2px solid #333;
   z-index: 2;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 게임 시작 버튼 스타일 */
+.start-button {
+  padding: 15px 50px;
+  font-size: 20px;
+  font-weight: bold;
+  background-color: #28a745;
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: transform 0.3s, background-color 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.start-button:hover {
+  transform: scale(1.1);
+  background-color: #218838;
 }
 
 video,
@@ -596,8 +783,8 @@ video {
   transform: translate(-50%, -50%);
   font-size: 48px;
   font-weight: bold;
-  color: #ff0000;
-  text-align: center;
+  color: white;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
 }
 
 .stage-info {
