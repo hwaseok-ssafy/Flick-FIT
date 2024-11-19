@@ -72,10 +72,10 @@
    </div>
 
    <!-- MoveNet 인식 화면 (좌측 상단 고정) -->
-   <div class="tracking-container" v-if="backgroundSelected && difficultySelected">
-     <video ref="video" autoplay playsinline></video>
-     <canvas ref="trackingCanvas"></canvas>
-   </div>
+  <div class="tracking-container" v-show="backgroundSelected && difficultySelected && !gameOver">
+    <video ref="video" autoplay playsinline></video>
+    <canvas ref="trackingCanvas"></canvas>
+  </div>
  </div>
 </template>
 
@@ -724,8 +724,8 @@ h1 {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.8); /* 반투명 배경 */
-  z-index: 1000; /* 항상 다른 요소 위에 표시 */
+  background-color: rgba(0, 0, 0, 0.8); /* 배경을 어둡게 */
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -733,36 +733,28 @@ h1 {
 }
 
 .game-over-image img {
-  max-width: 70%; /* 이미지 크기를 화면 너비에 비례하도록 설정 */
+  max-width: 300px; /* 고정된 이미지 크기 */
   height: auto;
-  margin-bottom: 2vh; /* 이미지와 버튼 간 여백 추가 */
-  transform: none; /* 기존의 불필요한 이동 제거 */
+  margin-bottom: 20px; /* 이미지와 버튼 사이 여백 */
 }
 
 .game-over-buttons {
   display: flex;
-  flex-direction: column; /* 버튼을 세로로 정렬 */
-  gap: 1.5vh;
-  width: auto;
-  text-align: center;
-  pointer-events: auto; /* 클릭 이벤트 허용 */
-  z-index: 1001; /* 버튼 클릭 우선권 보장 */
+  flex-direction: column;
+  align-items: center;
+  gap: 15px; /* 버튼 간격 고정 */
 }
 
 .game-over-buttons button {
-  padding: 1.5vh 2vw; /* 화면 크기에 비례 */
-  width: 20%; /* 버튼 너비를 화면에 비례 */
-  min-width: 100px; /* 최소 크기 */
-  height: auto;
-  font-size: 2vh; /* 글자 크기 화면에 비례 */
-  border-radius: 1vh;
+  width: 200px; /* 버튼 너비 고정 */
+  height: 50px; /* 버튼 높이 고정 */
+  font-size: 16px; /* 글자 크기 고정 */
+  border-radius: 8px; /* 약간 둥근 모서리 */
   background-color: #ff4500;
   color: white;
   border: none;
   cursor: pointer;
   transition: background-color 0.3s, transform 0.2s;
-  pointer-events: auto; /* 클릭 이벤트 허용 */
-  z-index: 1002; /* 항상 버튼이 상위에 위치 */
 }
 
 .game-over-buttons button:hover {
