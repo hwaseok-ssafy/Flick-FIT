@@ -1,0 +1,27 @@
+<mapper namespace="com.example.flickfit.mapper.UserMapper">
+    <insert id="insertUser">
+        INSERT INTO User (
+            user_id, username, password, weight, height, age, gender, goal_calories, goal_frequency, created_at, last_login
+        ) VALUES (
+            #{userId}, #{username}, #{password}, #{weight}, #{height}, #{age}, #{gender}, #{goalCalories}, #{goalFrequency}, #{createdAt}, #{lastLogin}
+        )
+    </insert>
+
+    <select id="findById" resultType="com.example.flickfit.model.dto.User">
+        SELECT * FROM User WHERE user_id = #{id}
+    </select>
+
+    <select id="selectAll" resultType="com.example.flickfit.model.dto.User">
+        SELECT * FROM User
+    </select>
+
+    <update id="updateLastLogin">
+        UPDATE User
+        SET last_login = #{lastLogin}
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="login" resultType="com.example.flickfit.model.dto.User">
+        SELECT * FROM User WHERE username = #{username} AND password = #{password}
+    </select>
+</mapper>
