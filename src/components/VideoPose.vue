@@ -1,10 +1,13 @@
 <template>
   <div class="container">
-   <h1>Flick-FIT</h1>
+    <!-- 로고 -->
+    <div class="logo" v-if="!gameOver && !isPaused && !animationRunning">
+      <img src="@/assets/fit_logo.png" alt="Flick FIT Logo" />
+    </div>
 
    <!-- 배경 선택 -->
    <div v-if="!backgroundSelected && !difficultySelected" class="settings-container">
-     <div class="overlay">
+      <div class="overlay">
        <h2>테마 선택</h2>
        <div class="button-group">
          <button @click="selectBackground('default')">해변</button>
@@ -17,7 +20,7 @@
 
    <!-- 난이도 선택 -->
    <div v-else-if="backgroundSelected && !difficultySelected" class="settings-container">
-     <div class="overlay">
+      <div class="overlay">
        <h2>모드 선택</h2>
        <div class="button-group">
          <button @click="selectDifficulty('easy')">쉬움</button>
@@ -28,8 +31,8 @@
    </div>
 
        <!-- 게임 시작 -->
-   <div v-else class="settings-container">
-     <div class="overlay">
+    <div v-else :key="'game-start'" class="settings-container">
+      <div class="overlay">
        <button class="start-button" @click="startGame">게임 시작</button>
      </div>
    </div>
@@ -60,9 +63,9 @@
       <div class="pause-menu">
         <h2>Menu</h2>
         <button @click="togglePause">Continue</button>
-        <button @click="changeMode">Mode</button>
-        <button @click="changeTheme">Theme</button>
+        <button @click="changeTheme">select</button>
         <button @click="restartFromStageOne">Restart</button>
+        <button @click="exitGame">Exit</button>
       </div>
     </div>
 
@@ -373,7 +376,8 @@ export default {
      this.countdown = null;
      this.difficulty = '';
      this.backgroundSelected = false;
-     alert('게임 선택 화면으로 돌아갑니다.');
+     alert('홈화면으로 돌아갑니다.');
+     this.$router.push({ name: "Home" });
    },
 
    togglePause() {
@@ -399,18 +403,15 @@ export default {
         this.togglePause();
       }
     },
-  changeMode() {
-    this.showPauseMenu = false; // 메뉴 닫기
-    this.isPaused = false;
-    this.difficultySelected = false; // 모드 선택으로 돌아감
-    this.togglePause(); // 일시정지 해제
-  },
+
+
 
   changeTheme() {
     this.showPauseMenu = false; // 메뉴 닫기
     this.isPaused = false;
-    this.backgroundSelected = false; // 테마 선택으로 돌아감
-    this.togglePause(); // 일시정지 해제
+
+    // 브라우저 새로고침을 실행
+    window.location.reload();
   },
 
   restartFromStageOne() {
@@ -678,6 +679,7 @@ export default {
   beforeDestroy() {
     window.removeEventListener('keydown', this.handleKeyDown);
   },
+  
 
 };
 
@@ -711,15 +713,17 @@ body {
  font-family: 'Arial', sans-serif;
 }
 
-/* 제목 스타일 */
-h1 {
- position: absolute;
- top: 40px;
- left: 50%;
- transform: translateX(-50%);
- font-size: 55px;
- color: #F6F9A2;
- text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+.logo {
+  position: absolute; /* 배경 위에 고정 */
+  top: 11%; /* 위쪽 간격 */
+  left: 56%; /* 수평 중앙 정렬 */
+  transform: translateX(-50%); /* 정확히 가운데로 이동 */
+  z-index: 10; /* 다른 요소 위에 표시되도록 우선순위 설정 */
+}
+
+.logo img {
+  width: 70% ; /* 로고 크기 */
+  height: auto; /* 비율 유지 */
 }
 
 .settings-container {
@@ -730,12 +734,13 @@ h1 {
  display: flex;
  align-items: center;
  justify-content: center;
- background: url('@/assets/BgBall.jpg') no-repeat center center; /* 가운데 정렬 */
- background-size: cover; /* 배경 크기를 화면에 맞게 조정 */
+ background: url('@/assets/home_back.jpg') no-repeat center center; /* 가운데 정렬 */
+ background-size: 100% 100%;
 }
 
 /* 오버레이 스타일 */
 .overlay {
+ margin-left: -1%;
  text-align: center;
  background: rgb(255, 255, 255);
  padding: 40px;

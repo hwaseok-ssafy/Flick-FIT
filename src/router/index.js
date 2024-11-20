@@ -1,8 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Start from '@/components/Start.vue';
 import VideoPose from '@/components/VideoPose.vue';
-import Login from '@/components/Login.vue'
+import Login from '@/components/Login.vue';
 import Signup from '@/components/Signup.vue';
+import GameGuide from '@/components/GameGuide.vue';
+import Home from '@/components/Home.vue';
+import Setting from '@/components/Setting.vue';
+import EditUserInfo from '@/components/EditUserInfo.vue'; // 추가된 회원 정보 수정 컴포넌트
 
 const routes = [
   {
@@ -18,12 +22,32 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: Login, // VideoPose 페이지
+    component: Login, // Login 페이지
   },
   {
     path: '/signup',
     name: 'Signup',
-    component: Signup, // VideoPose 페이지
+    component: Signup, // Signup 페이지
+  },
+  {
+    path: '/home',
+    name: 'Home',
+    component: Home, // Home 페이지
+  },
+  {
+    path: '/gameguide',
+    name: 'GameGuide',
+    component: GameGuide, // GameGuide 페이지
+  },
+  {
+    path: '/setting',
+    name: 'Setting',
+    component: Setting, // Setting 페이지
+  },
+  {
+    path: '/edituserinfo', // 회원 정보 수정 페이지 경로 추가
+    name: 'EditUserInfo',
+    component: EditUserInfo, // EditUserInfo 페이지
   },
 ];
 
