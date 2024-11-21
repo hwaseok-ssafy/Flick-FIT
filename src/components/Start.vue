@@ -14,14 +14,24 @@
     name: 'App',
     methods: {
       handleKeyDown(event) {
+
+        const tagName = event.target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea') {
+        return; // 입력 필드에서는 키 이벤트 처리 안 함
+        }
+        
         if (event.key === 'L' || event.key === 'l') {
           this.$router.push({ name: 'Login' }); // L 키를 누르면 Login으로 이동
-        } else if (event.key === 'S' || event.key === 's') {
+        } 
+        
+        else if (event.key === 'S' || event.key === 's') {
           this.$router.push({ name: 'Signup' }); // S 키를 누르면 Signup으로 이동
         }
       },
     },
     mounted() {
+
+      
       // 전역 키 이벤트 등록
       window.addEventListener('keydown', this.handleKeyDown);
     },

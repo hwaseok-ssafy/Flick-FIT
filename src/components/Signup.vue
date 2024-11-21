@@ -21,13 +21,14 @@
 
       <!-- 입력 필드 -->
       <div class="signup-box">
-        <input
-          v-if="store.step === 1"
-          type="text"
-          v-model="store.signupData.username"
-          placeholder="아이디를 입력하세요"
-          class="signup-input"
-        />
+  <!-- ID 입력 -->
+  <input
+  v-if="store.step === 1"
+  type="text"
+  v-model="store.signupData.userId" 
+  placeholder="사용자 ID를 입력하세요"
+  class="signup-input"
+/>
         <input
           v-if="store.step === 2"
           type="password"
@@ -35,13 +36,14 @@
           placeholder="비밀번호를 입력하세요"
           class="signup-input"
         />
-        <input
-          v-if="store.step === 3"
-          type="text"
-          v-model="store.signupData.name"
-          placeholder="사용자 이름을 입력하세요"
-          class="signup-input"
-        />
+<!-- 사용자 이름 입력 -->
+<input
+  v-if="store.step === 3"
+  type="text"
+  v-model="store.signupData.username"
+  placeholder="사용자 이름을 입력하세요"
+  class="signup-input"
+/>
         <input
           v-if="store.step === 4"
           type="number"
@@ -84,7 +86,7 @@
       <!-- 오른쪽 버튼 -->
       <button
         class="signup-button right-button"
-        @click="store.handleRightButtonClick"
+        @click="handleRightButtonClick"
       >
         <img src="@/assets/right.png" alt="Right Arrow" class="button-icon" />
       </button>
@@ -93,13 +95,38 @@
 </template>
 
 <script>
-import { useSignupStore } from "@/stores/signupStore"; // 올바른 store 파일 경로
+import { useUserStore } from "@/stores/UserStore";
 
 export default {
   name: "Signup",
   setup() {
-    const store = useSignupStore(); // Pinia store 사용
-    return { store }; // store 반환
+    const store = useUserStore();
+
+    const handleRightButtonClick = () => {
+      const { step, signupData } = store;
+
+      // 필수 입력값 유효성 검사
+      if (step === 1 && !signupData.userId) {
+        alert("사용자 ID를 입력하세요.");
+        return;
+      }
+      if (step === 2 && !signupData.password) {
+        alert("비밀번호를 입력하세요.");
+        return;
+      }
+      if (step === 3 && !signupData.username) {
+        alert("사용자 이름을 입력하세요.");
+        return;
+      }
+
+      if (step === 8) {
+    store.signup(); // 최종 회원가입 요청
+  } else {
+    store.handleRightButtonClick(); // 다음 단계로 진행
+  }
+    };
+
+    return { store, handleRightButtonClick };
   },
 };
 </script>

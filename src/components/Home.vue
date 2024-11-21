@@ -14,6 +14,11 @@ export default {
   name: 'App',
   methods: {
     handleKeyDown(event) {
+      const tagName = event.target.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea') {
+        return; // 입력 필드에서는 키 이벤트 처리 안 함
+        }
+        
       switch (event.key.toLowerCase()) {
         case 'g': // G 키를 누르면 VideoPose.vue로 이동
           this.$router.push({ name: 'VideoPose' });

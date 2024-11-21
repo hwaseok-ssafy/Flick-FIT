@@ -1,30 +1,25 @@
 <template>
   <div id="login" class="login-container">
-    <!-- 배경 이미지 -->
     <div class="background"></div>
-
-    <!-- 로고 -->
     <div class="logo">
       <img src="@/assets/fit_logo.png" alt="Flick FIT Logo" />
     </div>
-
-    <!-- 로그인 박스 -->
     <div class="login-box-container">
       <!-- 왼쪽 버튼 -->
       <button
-        v-if="step===2"
+        v-if="step === 2"
         class="login-button left-button"
         @click="handleLeftButtonClick"
       >
         <img src="@/assets/left.png" alt="Left Arrow" class="button-icon" />
       </button>
-
+      
       <!-- 입력 필드 -->
       <div class="login-box">
         <input
           v-if="step === 1"
           type="text"
-          v-model="username"
+          v-model="userId"
           placeholder="아이디를 입력하세요"
           class="login-input"
         />
@@ -49,54 +44,57 @@
 </template>
 
 <script>
-import axios from "axios";
+import { ref } from "vue";
+import { useUserStore } from "@/stores/UserStore";
 
 export default {
   name: "Login",
-  data() {
-    return {
-      step: 1, // 현재 단계 (1: 아이디 입력, 2: 비밀번호 입력)
-      username: "", // 아이디 저장
-      password: "", // 비밀번호 저장
-    };
-  },
-  methods: {
-    handleLeftButtonClick() {
-      if (this.step === 2) {
-        // 비밀번호 단계에서 이전 단계(아이디 입력)로 돌아가기
-        this.step = 1;
-        this.password = ""; // 비밀번호 초기화
-      } else if (this.step === 1) {
-        // 아이디 입력 단계에서 초기화
-        this.username = "";
-      }
-    },
-    handleRightButtonClick() {
-      if (this.step === 1 && this.username) {
-        // 아이디 입력 완료 후 비밀번호 입력 단계로 이동
-        this.step = 2;
-      } else if (this.step === 2 && this.password) {
-        // 비밀번호 입력 완료 후 로그인 처리
-        this.submitLogin();
-      }
-    },
-    async submitLogin() {
-      try {
-        const response = await axios.post("http://localhost:8080/userapi/login", {
-          username: this.username,
-          password: this.password,
-        });
+  setup() {
+    const store = useUserStore();
 
-        if (response.status === 202) {
-          console.log("로그인 성공!");
-          console.log("토큰:", response.data["access-token"]); // JWT 토큰 출력
-        } else {
-          console.log("로그인 실패");
-        }
-      } catch (error) {
-        console.error("로그인 오류:", error.message);
+    // 로컬 상태
+    const step = ref(1);
+    const userId = ref("");
+    const password = ref("");
+
+    // 왼쪽 버튼 클릭 (이전 단계로 이동)
+    const handleLeftButtonClick = () => {
+      if (step.value === 2) {
+        step.value = 1;
       }
-    },
+    };
+
+    // 오른쪽 버튼 클릭 (다음 단계로 이동 및 로그인 처리)
+    const handleRightButtonClick = async () => {
+      if (step.value === 1) {
+        if (userId.value.trim() === "") {
+          console.error("아이디를 입력하세요.");
+        } else {
+          step.value = 2;
+        }
+      } else if (step.value === 2) {
+        if (password.value.trim() === "") {
+          console.error("비밀번호를 입력하세요.");
+        } else {
+          try {
+            // 로그인 값 전달 및 로그인 요청
+            store.loginData.userId = userId.value;
+            store.loginData.password = password.value;
+            await store.login(); // store의 login 메서드 호출
+          } catch (error) {
+            console.error("로그인 실패:", error);
+          }
+        }
+      }
+    };
+
+    return {
+      step,
+      userId,
+      password,
+      handleLeftButtonClick,
+      handleRightButtonClick,
+    };
   },
 };
 </script>
