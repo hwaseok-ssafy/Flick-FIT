@@ -56,4 +56,13 @@ const router = createRouter({
   routes,
 });
 
+router.beforeEach((to, from, next) => {
+  const token = sessionStorage.getItem("access-token");
+  if (to.name !== "Login" && to.name !== "Signup" && to.name !== "Start" && !token) {
+    next({ name: "Start" });
+  } else {
+    next();
+  }
+});
+
 export default router;
