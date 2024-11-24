@@ -1,90 +1,116 @@
 <template>
-    <div class="container">
-  
+  <div class="container">
       <div class="form-container">
-        <h2>회원 정보 수정</h2>
-  
-        <!-- 성별 선택 -->
-        <div class="form-item">
-          <label for="gender">성별</label>
-          <select id="gender" v-model="gender">
-            <option value="male">남성</option>
-            <option value="female">여성</option>
-          </select>
-        </div>
-  
-        <!-- 키 입력 -->
-        <div class="form-item">
-          <label for="height">키 (cm)</label>
-          <input type="number" id="height" v-model="height" placeholder="키 입력" />
-        </div>
-  
-        <!-- 몸무게 입력 -->
-        <div class="form-item">
-          <label for="weight">몸무게 (kg)</label>
-          <input type="number" id="weight" v-model="weight" placeholder="몸무게 입력" />
-        </div>
-  
-        <!-- 일일 목표 소모 칼로리 -->
-        <div class="form-item">
-          <label for="goal-calories">일일 목표 소모 칼로리</label>
-          <input
-            type="number"
-            id="goal-calories"
-            v-model="goalCalories"
-            placeholder="칼로리 입력"
-          />
-        </div>
-  
-        <!-- 비밀번호 수정 -->
-        <div class="form-item">
-          <label for="password">비밀번호</label>
-          <input
-            type="password"
-            id="password"
-            v-model="password"
-            placeholder="비밀번호 입력"
-          />
-        </div>
-  
-        <!-- 저장 버튼 -->
-        <button @click="saveChanges">저장</button>
-  
-        <!-- 뒤로가기 버튼 -->
-        <button class="back-button" @click="goBack">뒤로가기</button>
+          <h2>회원 정보 수정</h2>
+
+          <!-- 성별 선택 -->
+          <div class="form-item">
+              <label for="gender">성별</label>
+              <select id="gender" v-model="gender">
+                  <option value="male">남성</option>
+                  <option value="female">여성</option>
+              </select>
+          </div>
+
+          <!-- 키 입력 -->
+          <div class="form-item">
+              <label for="height">키 (cm)</label>
+              <input type="number" id="height" v-model="height" placeholder="키 입력" />
+          </div>
+
+          <!-- 몸무게 입력 -->
+          <div class="form-item">
+              <label for="weight">몸무게 (kg)</label>
+              <input type="number" id="weight" v-model="weight" placeholder="몸무게 입력" />
+          </div>
+
+          <!-- 일일 목표 소모 칼로리 -->
+          <div class="form-item">
+              <label for="goal-calories">일일 목표 소모 칼로리</label>
+              <input type="number" id="goal-calories" v-model="goalCalories" placeholder="칼로리 입력" />
+          </div>
+
+          <!-- 비밀번호 수정 -->
+          <div class="form-item">
+              <label for="password">비밀번호</label>
+              <input type="password" id="password" v-model="password" placeholder="비밀번호 입력" />
+          </div>
+
+          <!-- 저장 버튼 -->
+          <button @click="saveChanges">저장</button>
+
+          <!-- 뒤로가기 버튼 -->
+          <button class="back-button" @click="goBack">뒤로가기</button>
       </div>
-    </div>
-  </template>
-  
-  <script>
-  export default {
-    name: "EditUserInfo",
-    data() {
+  </div>
+</template>
+
+<script>
+import axios from "axios";
+
+export default {
+  name: "EditUserInfo",
+  data() {
       return {
-        gender: "male",
-        height: "",
-        weight: "",
-        goalCalories: "",
-        password: "",
+          userId: "",
+          username: "",
+          gender: "",
+          height: "",
+          weight: "",
+          goalCalories: "",
+          password: "",
       };
-    },
-    methods: {
-      saveChanges() {
-        console.log("회원 정보 저장됨", {
-          gender: this.gender,
-          height: this.height,
-          weight: this.weight,
-          goalCalories: this.goalCalories,
-          password: this.password,
-        });
-        alert("회원 정보가 저장되었습니다!");
+  },
+  mounted() {
+      this.userId = sessionStorage.getItem("user-id");
+      if (this.userId) {
+          this.loadUserInfo();
+      } else {
+          console.error("No user ID found in session storage.");
+      }
+  },
+  methods: {
+      async loadUserInfo() {
+          try {
+              const response = await axios.get(`http://localhost:8080/api-user/users/${this.userId}`);
+              const userInfo = response.data;
+
+              this.username = userInfo.username;
+              this.gender = userInfo.gender;
+              this.height = userInfo.height;
+              this.weight = userInfo.weight;
+              this.goalCalories = userInfo.goalCalories;
+              this.userId = userInfo.userId;
+          } catch (error) {
+              console.error("회원 정보를 불러오는데 실패했습니다.", error);
+          }
+      },
+      async saveChanges() {
+          if (!this.username) {
+              alert("Username cannot be empty. Please provide a valid username.");
+              return;
+          }
+
+          try {
+              await axios.put(`http://localhost:8080/api-user/${this.userId}`, {
+                  username: this.username,
+                  gender: this.gender,
+                  height: this.height,
+                  weight: this.weight,
+                  goalCalories: this.goalCalories,
+                  password: this.password,
+              });
+              alert("회원 정보가 저장되었습니다!");
+          } catch (error) {
+              console.error("회원 정보 수정 실패:", error);
+          }
       },
       goBack() {
-        this.$router.push({ name: "Setting" });
+          this.$router.push({ name: "Setting" });
       },
-    },
-  };
-  </script>
+  },
+};
+</script>
   
   <style scoped>
   .container {

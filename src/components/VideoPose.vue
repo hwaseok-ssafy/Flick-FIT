@@ -315,17 +315,32 @@ export default {
     }, 4000); // 코인이 표시될 시간 (2초)
   },
 
-  endGame(victory) {
+  async endGame(victory) {
     this.animationRunning = false;
     clearInterval(this.stageTimer);
     this.gameOver = true;
-    this.showCoin = false; // 코인 표시 비활성화
+    this.showCoin = false;
     console.log('게임 오버 상태:', this.gameOver);
 
     if (victory) {
       alert('모든 스테이지 완료! 축하합니다!');
     } else {
       alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
+    }
+
+    // 게임 결과를 백엔드에 저장
+    try {
+      const userId = sessionStorage.getItem("user-id");
+      await axios.post('http://localhost:8080/api-game/session', {
+        userId,
+        startTime: this.startTime,
+        endTime: new Date().toISOString(),
+        caloriesBurned: this.caloriesBurned,
+        score: this.currentLevel,
+        bonusCalories: this.stageCoins * 10, // 예시 계산
+      });
+    } catch (error) {
+      console.error("게임 세션 저장 실패:", error);
     }
   },
 

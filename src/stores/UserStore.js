@@ -30,7 +30,8 @@ export const useUserStore = defineStore("user", () => {
       
       // 성공 응답 처리
       sessionStorage.setItem("access-token", response.data["access-token"]);
-  
+      sessionStorage.setItem("user-id", loginData.value.userId); // 사용자 ID 저장
+
       const token = response.data["access-token"].split(".");
       const payload = JSON.parse(atob(token[1]));
       loginUser.value = payload.name;
@@ -66,7 +67,7 @@ export const useUserStore = defineStore("user", () => {
         gender: signupData.value.gender,
         calorieGoal: signupData.value.calorieGoal,
       });
-  
+      sessionStorage.setItem("user-id", signupData.value.userId); // 회원가입 시 사용자 ID 저장
       alert("회원가입 성공! 로그인 페이지로 이동합니다.");
       router.push({ name: "Login" });
     } catch (error) {
