@@ -56,6 +56,7 @@
          <button @click="restartFromCurrentStage">Retry</button>
          <button @click="restartGame">Again Play</button>
          <button @click="exitGame">Exit</button>
+         <button @click="showGameResult">Game Result</button>
        </div>
      </div>
 
@@ -244,7 +245,10 @@ export default {
      }
      this.initializeBalls();
    },
-
+   showGameResult() {
+    // 게임 결과 화면으로 라우팅
+    this.$router.push({ name: "GameResult" });
+  },
    initializeStage() {
      const stageSettings = this.stageConfig[this.difficulty][this.currentStage - 1];
      this.numBalls = stageSettings.numBalls; // 스테이지별 공 개수 설정
