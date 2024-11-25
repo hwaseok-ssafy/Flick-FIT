@@ -22,23 +22,37 @@ export const useUserStore = defineStore("user", () => {
 
   const login = async () => {
     console.log("Login Data:", loginData.value);
+  
     try {
       const response = await axios.post(`${REST_API_URL}/login`, {
         userId: loginData.value.userId,
         password: loginData.value.password,
       });
-      
-      // 성공 응답 처리
-      sessionStorage.setItem("access-token", response.data["access-token"]);
-      sessionStorage.setItem("user-id", loginData.value.userId); // 사용자 ID 저장
-
-      const token = response.data["access-token"].split(".");
-      const payload = JSON.parse(atob(token[1]));
-      loginUser.value = payload.name;
   
-      router.push({ name: "Home" }); // 로그인 성공 시 이동
+      // 서버에서 반환된 데이터 확인
+      console.log("Login Response:", response.data);
+  
+      // 성공 응답 처리
+      const { "access-token": accessToken, user } = response.data;
+  
+      if (!accessToken || !user) {
+        throw new Error("Invalid response structure");
+      }
+  
+      sessionStorage.setItem("access-token", accessToken);
+      sessionStorage.setItem("user-id", user.userId); // 사용자 ID 저장
+      sessionStorage.setItem("user-data", JSON.stringify(user)); // 사용자 정보 저장
+  
+      // JWT 토큰에서 이름 추출
+      const tokenPayload = JSON.parse(atob(accessToken.split(".")[1]));
+      loginUser.value = tokenPayload.name || user.username || user.userId;
+  
+      console.log("로그인 성공! 사용자 이름:", loginUser.value);
+  
+      // 로그인 성공 시 홈 화면으로 이동
+      router.push({ name: "Home" });
     } catch (error) {
-      // 오류 응답 처리
+      // 오류 처리
       if (error.response) {
         console.error("로그인 실패 (서버 오류):", error.response.data);
         alert(error.response.data.message || "로그인 실패! 아이디와 비밀번호를 확인해주세요.");
@@ -52,6 +66,24 @@ export const useUserStore = defineStore("user", () => {
     }
   };
   
+  const fetchUserData = () => {
+    const userId = sessionStorage.getItem("user-id");
+    const userData = sessionStorage.getItem("user-data");
+
+    if (!userId || !userData) {
+      alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+      router.push({ name: "Login" });
+      return;
+    }
+
+    try {
+      const parsedUserData = JSON.parse(userData);
+      signupData.value = parsedUserData;
+      loginUser.value = parsedUserData.username || parsedUserData.userId;
+    } catch (error) {
+      console.error("사용자 데이터 파싱 실패:", error);
+    }
+  };
 
   // 회원가입
   const signup = async () => {
@@ -91,6 +123,7 @@ export const useUserStore = defineStore("user", () => {
     step,
     login,
     signup,
+    fetchUserData,
     handleRightButtonClick,
     handleLeftButtonClick,
   };
