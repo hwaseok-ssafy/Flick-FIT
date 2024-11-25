@@ -7,6 +7,7 @@ import GameGuide from '@/components/GameGuide.vue';
 import Home from '@/components/Home.vue';
 import Setting from '@/components/Setting.vue';
 import EditUserInfo from '@/components/EditUserInfo.vue'; // 추가된 회원 정보 수정 컴포넌트
+import GameResult from '@/components/GameResult.vue';
 
 const routes = [
   {
@@ -48,6 +49,11 @@ const routes = [
     path: '/edituserinfo', // 회원 정보 수정 페이지 경로 추가
     name: 'EditUserInfo',
     component: EditUserInfo, // EditUserInfo 페이지
+  },
+  {
+    path: '/gmaeresult', // 게임 결과 페이지 추가
+    name: 'GameResult',
+    component: GameResult, // 게임 결과 페이지
   },
 ];
 
