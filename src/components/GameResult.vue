@@ -1,77 +1,94 @@
 <template>
-    <div class="container">
-      <!-- 로고 -->
-      <div class="logo">
-        <img src="@/assets/fit_logo.png" alt="Flick FIT Logo" />
-      </div>
-  
-      <!-- 결과 섹션 -->
-      <div class="result-container">
-        <div class="overlay">
-          <h2>게임 결과</h2>
-  
-          <!-- 개인 통계 -->
-          <div class="user-stats">
-            <p>닉네임: <span class="highlight">{{ username }}</span></p>
-            <p>목표 칼로리: <span class="highlight">{{ goalCalories }} kcal</span></p>
-          </div>
-  
-          <!-- 현재 게임 결과 -->
-          <div class="session-stats">
-            <h3>이번 세션</h3>
-            <p>점수: <span class="highlight">{{ score }}</span></p>
-            <p>소모 칼로리: <span class="highlight">{{ caloriesBurned }} kcal</span></p>
-            <p>보너스 칼로리: <span class="highlight">{{ bonusCalories }} kcal</span></p>
-          </div>
-  
-          <!-- 일일 통계 -->
-          <div class="daily-stats">
-            <h3>오늘의 기록</h3>
-            <p>소모 칼로리: <span class="highlight">{{ dailyCaloriesBurned }} kcal</span></p>
-            <p>운동 횟수: <span class="highlight">{{ dailySessionsCount }}</span> 회</p>
-            <p>목표 달성 여부: 
-              <span class="highlight">{{ dailyGoalAchieved ? '달성' : '미달성' }}</span>
-            </p>
-          </div>
-  
-          <!-- 버튼 -->
-          <div class="result-buttons">
-            <button class="back-button" @click="retryGame">게임 다시 하기</button>
-          </div>
+  <div class="container">
+    <!-- 로고 -->
+    <div class="logo">
+      <img src="@/assets/fit_logo.png" alt="Flick FIT Logo" />
+    </div>
+
+    <!-- 결과 섹션 -->
+    <div class="result-container">
+      <div class="overlay" v-if="gameResult.startTime">
+        <h2>게임 결과</h2>
+
+        <!-- 현재 게임 결과 -->
+        <div class="session-stats">
+          <p>소모 칼로리: <span class="highlight">{{ formattedCaloriesBurned }} kcal</span></p>
+          <p>획득한 코인: <span class="highlight">{{ gameResult.coins || 0 }}</span></p>
+          <p>게임 시간: <span class="highlight">{{ adjustedGameDuration }} 초</span></p>
+        </div>
+
+        <!-- 버튼 -->
+        <div class="result-buttons">
+          <button class="retry-button" @click="retryGame">게임 다시 하기</button>
         </div>
       </div>
+
+      <div class="overlay" v-else>
+        <h2>결과를 불러오는 중...</h2>
+      </div>
     </div>
-  </template>
-  
-  <script>
-  export default {
-    name: "GameResult",
-    data() {
-      return {
-        // 사용자 정보 (예시 데이터, 실제로는 API로부터 받아와야 함)
-        username: "JohnDoe",
-        goalCalories: 500,
-  
-        // 현재 세션 데이터
-        score: 1230,
-        caloriesBurned: 150.5,
-        bonusCalories: 20.0,
-  
-        // 일일 통계 데이터
-        dailyCaloriesBurned: 400,
-        dailySessionsCount: 3,
-        dailyGoalAchieved: true,
-      };
-    },
-    methods: {
-      retryGame() {
-        this.$router.push({ name: "VideoPose" }); // 게임 화면으로 이동
+  </div>
+</template>
+
+<script>
+export default {
+  name: "GameResult",
+  data() {
+    return {
+      gameResult: {
+        startTime: null,
+        endTime: null,
+        caloriesBurned: 0,
+        coins: 0,
       },
+    };
+  },
+  computed: {
+    gameDuration() {
+      if (!this.gameResult.startTime || !this.gameResult.endTime) {
+        return 0; // 기본값
+      }
+      const startTime = new Date(this.gameResult.startTime);
+      const endTime = new Date(this.gameResult.endTime);
+      return Math.floor((endTime - startTime) / 1000); // 밀리초를 초 단위로 변환
     },
-  };
-  </script>
-  
+    adjustedGameDuration() {
+      // 게임 시간에서 3초를 뺀 값 (최소값은 0으로 제한)
+      return Math.max(0, this.gameDuration - 3);
+    },
+    formattedCaloriesBurned() {
+      // 소수점 두 번째 자리까지만 표시
+      return this.gameResult.caloriesBurned.toFixed(2);
+    },
+  },
+  mounted() {
+    try {
+      const parsedData = this.$route.query.gameResult
+        ? JSON.parse(this.$route.query.gameResult)
+        : null;
+
+      if (parsedData) {
+        console.log("Parsed gameResult:", parsedData);
+        this.gameResult = parsedData; // 데이터를 수동으로 설정
+      } else {
+        console.warn("No gameResult data found in query.");
+      }
+    } catch (error) {
+      console.error("Error parsing gameResult data:", error);
+    }
+
+    console.log("Received gameResult:", this.gameResult);
+  },
+  methods: {
+    retryGame() {
+      this.$router.push({ name: "VideoPose" });
+    },
+  },
+};
+</script>
+
   <style scoped>
+  /* 기존 CSS 유지 */
   * {
     margin: 0;
     padding: 0;
@@ -92,15 +109,15 @@
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    font-family: 'Arial', sans-serif;
-    background: url('@/assets/result_back.jpg') no-repeat center center;
+    font-family: "Arial", sans-serif;
+    background: url("@/assets/result_back.jpg") no-repeat center center;
     background-size: cover;
   }
   
   .logo {
     position: absolute;
     top: 50px;
-    left: 50%;
+    left: 58%;
     transform: translateX(-50%);
     z-index: 10;
   }
@@ -111,7 +128,7 @@
   }
   
   .result-container {
-    margin-top: 5%;
+    margin-top: 0%;
     width: 100%;
     height: 100%;
     display: flex;
@@ -159,8 +176,7 @@
     margin-top: 20px;
   }
   
-  .retry-button,
-  .back-button {
+  .retry-button {
     padding: 10px 30px;
     font-size: 18px;
     font-weight: bold;
@@ -173,8 +189,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
   
-  .retry-button:hover,
-  .back-button:hover {
+  .retry-button:hover {
     transform: scale(1.1);
     background-color: #218838;
   }

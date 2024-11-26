@@ -114,6 +114,7 @@ import turtleImage from '@/assets/turtle.png';
 
 import coinGif from '@/assets/coin.gif';
 import { useUserStore } from "@/stores/UserStore";
+import axios from 'axios';
 
 
 export default {
@@ -136,7 +137,8 @@ export default {
 
      isPaused: false, // 일시정지 상태
      showPauseMenu: false, // 일시정지 메뉴 표시 여부
-
+     startTime: null,
+     endTime: null,
      balls: [],
      animationRunning: false,
      gameOver: false,
@@ -234,13 +236,17 @@ export default {
      this.backgroundSelected = true;
    },
    async startGame() {
-     this.gameOver = false;
-     this.currentStage = 1;
-     await this.setupCamera();
-     await this.loadMoveNet();
-     this.startCountdown();
-     this.initializeStage();
-   },
+
+    console.log("startGame 호출됨"); // 디버깅 로그 추가
+    this.startTime = new Date().toISOString(); // 게임 시작 시간 설정
+    console.log("게임 시작 시간:", this.startTime); // 디버깅 로그
+    this.gameOver = false;
+    this.currentStage = 1;
+    await this.setupCamera();
+    await this.loadMoveNet();
+    this.startCountdown();
+    this.initializeStage();
+},
    
    setGameDifficulty() {
      this.numBalls = 5;
@@ -333,32 +339,77 @@ export default {
   async endGame(victory) {
     this.animationRunning = false;
     clearInterval(this.stageTimer);
-    this.stopCalorieUpdateTimer(); // 게임 종료 시 타이머 정지
-    this.gameOver = true;
+    this.stopCalorieUpdateTimer();
     this.showCoin = false;
-    console.log('게임 오버 상태:', this.gameOver);
 
+    this.gameOver = true;
+    // 종료 원인 로그 추가
     if (victory) {
-      alert('모든 스테이지 완료! 축하합니다!');
+        console.log("게임 클리어! 모든 스테이지 완료!");
+        alert('모든 스테이지 완료! 축하합니다!');
     } else {
-      alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
+        console.log("충돌로 게임 종료");
+        alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
     }
 
-    // 게임 결과를 백엔드에 저장
-    try {
-      const userId = sessionStorage.getItem("user-id");
-      await axios.post('http://localhost:8080/api-game/session', {
-        userId,
+    console.log("게임 시작 시간:", this.startTime);
+
+    if (!this.startTime) {
+        console.error("startTime이 null 또는 undefined입니다.");
+        alert("게임 시작 시간이 누락되었습니다.");
+        return;
+    }
+
+    this.gameResult = {
+        userId: sessionStorage.getItem("user-id"),
         startTime: this.startTime,
         endTime: new Date().toISOString(),
         caloriesBurned: this.caloriesBurned,
-        score: this.currentLevel,
-        bonusCalories: this.stageCoins * 10, // 예시 계산
-      });
+        coins: this.coins,
+    };
+
+    console.log("게임 결과 데이터 준비 완료:", this.gameResult);
+  },
+
+  async showGameResult() {
+    if (!this.gameResult) {
+        console.error("게임 결과가 없습니다.");
+        return;
+    }
+
+    const jwtToken = sessionStorage.getItem("access-token");
+    if (!jwtToken) {
+        alert("인증 토큰이 없습니다. 다시 로그인해주세요.");
+        this.$router.push({ name: "Login" });
+        return;
+    }
+
+    try {
+        const response = await axios.post(
+            "http://localhost:8080/api-game/game-over",
+            this.gameResult,
+            {
+                headers: {
+                    Authorization: `Bearer ${jwtToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        console.log("게임 결과 저장 성공:", response.data);
+
+        // 결과 화면으로 이동
+        this.$router.push({
+            name: "GameResult",
+            query: {
+                gameResult: JSON.stringify(this.gameResult),
+            },
+        });
     } catch (error) {
-      console.error("게임 세션 저장 실패:", error);
+        console.error("게임 결과 저장 실패:", error.response || error.message);
+        alert("결과 저장에 실패했습니다. 다시 시도해주세요.");
     }
   },
+
 
    restartGame() {
     console.log('처음부터 다시 시작 버튼 호출됨');
@@ -677,6 +728,10 @@ export default {
        if (distance < ball.radius + this.characterSize / 2) {
          this.animationRunning = false;
          this.gameOver = true;
+
+         console.log("충돌로 인해 endGame 호출"); // 확인용 로그
+         this.endGame(false); // 충돌 시 게임 종료 호출
+
        }
      });
    },
