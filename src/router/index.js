@@ -8,6 +8,7 @@ import Home from '@/components/Home.vue';
 import Setting from '@/components/Setting.vue';
 import EditUserInfo from '@/components/EditUserInfo.vue'; // 추가된 회원 정보 수정 컴포넌트
 import GameResult from '@/components/GameResult.vue';
+import GameLog from '@/components/GameLog.vue';
 
 const routes = [
   {
@@ -51,10 +52,16 @@ const routes = [
     component: EditUserInfo, // EditUserInfo 페이지
   },
   {
-    path: '/gmaeresult', // 게임 결과 페이지 추가
-    name: 'GameResult',
-    component: GameResult, // 게임 결과 페이지
+    path: "/game-result",
+    name: "GameResult",
+    component: () => import("@/components/GameResult.vue"),
   },
+  {
+    path: '/gamelog', // 회원 정보 수정 페이지 경로 추가
+    name: 'GameLog',
+    component: GameLog, // EditUserInfo 페이지
+  },
+  
 ];
 
 const router = createRouter({

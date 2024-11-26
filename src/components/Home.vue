@@ -3,7 +3,7 @@
         <div class="game-container">
           <!-- 로고 이미지 추가 -->
           <img src="@/assets/fit_logo.png" alt="Flick-FIT Logo" class="game-logo" />
-          <p class="game-instruction"> G키를 눌러 게임을 시작하세요. <br> D 키를 눌러 게임 방법을 확인하세요. <br> S키를 눌러 환경설정으로 이동하세요.</p>
+          <p class="game-instruction"> G키를 눌러 게임을 시작하세요. <br> D 키를 눌러 게임 방법을 확인하세요. <br> S키를 눌러 환경설정으로 이동하세요.<br> R키를 눌러 게임 로그를 확인하세요.</p>
           <img src="@/assets/whitedog.png" alt="dog" class="dog"/>
         </div>
       </div>
@@ -15,10 +15,10 @@ export default {
   methods: {
     handleKeyDown(event) {
       const tagName = event.target.tagName.toLowerCase();
-        if (tagName === 'input' || tagName === 'textarea') {
+      if (tagName === 'input' || tagName === 'textarea') {
         return; // 입력 필드에서는 키 이벤트 처리 안 함
-        }
-        
+      }
+
       switch (event.key.toLowerCase()) {
         case 'g': // G 키를 누르면 VideoPose.vue로 이동
           this.$router.push({ name: 'VideoPose' });
@@ -28,6 +28,9 @@ export default {
           break;
         case 'd': // D 키를 누르면 GameGuide.vue로 이동
           this.$router.push({ name: 'GameGuide' });
+          break;
+        case 'r': // R 키를 누르면 GameLog.vue로 이동
+          this.$router.push({ name: 'GameLog' });
           break;
         default:
           break;

@@ -10,14 +10,6 @@
         <div class="overlay">
           <h2>환경 설정</h2>
   
-          <!-- 배경음악 설정 -->
-          <div class="setting-item">
-            <label for="background-music">배경음악</label>
-            <label class="toggle-switch">
-              <input type="checkbox" v-model="isMusicOn" @change="toggleMusic" />
-              <span class="slider"></span>
-            </label>
-          </div>
   
           <!-- 회원 정보 수정 -->
           <div class="setting-item">

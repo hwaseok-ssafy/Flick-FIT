@@ -113,11 +113,20 @@ import jadooImage from '@/assets/jadoo.png';
 import turtleImage from '@/assets/turtle.png';
 
 import coinGif from '@/assets/coin.gif';
-
+import { useUserStore } from "@/stores/UserStore";
+import axios from 'axios';
 
 
 export default {
  name: 'VideoPose',
+ setup() {
+  const userStore = useUserStore();
+  userStore.fetchUserData();
+
+  return {
+    userStore,
+  };
+ },
  data() {
    const characterSize = window.innerHeight * 0.12;
    return {
@@ -128,7 +137,8 @@ export default {
 
      isPaused: false, // 일시정지 상태
      showPauseMenu: false, // 일시정지 메뉴 표시 여부
-
+     startTime: null,
+     endTime: null,
      balls: [],
      animationRunning: false,
      gameOver: false,
@@ -150,6 +160,9 @@ export default {
      difficultySelected: false,
      selectedMap: 'default',
      caloriesBurned: 0,
+     movementDelta: 0, // 1초 동안의 누적 움직임 변화량
+    caloriesPerSecond: 0, // 초당 칼로리 소모량
+    calorieUpdateInterval: null, // 초당 업데이트 타이머
      lastKeypointPosition: null,
      spawnInterval: 1000,
      fixedBallSize: 50,
@@ -223,13 +236,17 @@ export default {
      this.backgroundSelected = true;
    },
    async startGame() {
-     this.gameOver = false;
-     this.currentStage = 1;
-     await this.setupCamera();
-     await this.loadMoveNet();
-     this.startCountdown();
-     this.initializeStage();
-   },
+
+    console.log("startGame 호출됨"); // 디버깅 로그 추가
+    this.startTime = new Date().toISOString(); // 게임 시작 시간 설정
+    console.log("게임 시작 시간:", this.startTime); // 디버깅 로그
+    this.gameOver = false;
+    this.currentStage = 1;
+    await this.setupCamera();
+    await this.loadMoveNet();
+    this.startCountdown();
+    this.initializeStage();
+},
    
    setGameDifficulty() {
      this.numBalls = 5;
@@ -322,31 +339,77 @@ export default {
   async endGame(victory) {
     this.animationRunning = false;
     clearInterval(this.stageTimer);
-    this.gameOver = true;
+    this.stopCalorieUpdateTimer();
     this.showCoin = false;
-    console.log('게임 오버 상태:', this.gameOver);
 
+    this.gameOver = true;
+    // 종료 원인 로그 추가
     if (victory) {
-      alert('모든 스테이지 완료! 축하합니다!');
+        console.log("게임 클리어! 모든 스테이지 완료!");
+        alert('모든 스테이지 완료! 축하합니다!');
     } else {
-      alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
+        console.log("충돌로 게임 종료");
+        alert('게임 오버! 버튼을 선택해 재시작하거나 종료하세요.');
     }
 
-    // 게임 결과를 백엔드에 저장
-    try {
-      const userId = sessionStorage.getItem("user-id");
-      await axios.post('http://localhost:8080/api-game/session', {
-        userId,
+    console.log("게임 시작 시간:", this.startTime);
+
+    if (!this.startTime) {
+        console.error("startTime이 null 또는 undefined입니다.");
+        alert("게임 시작 시간이 누락되었습니다.");
+        return;
+    }
+
+    this.gameResult = {
+        userId: sessionStorage.getItem("user-id"),
         startTime: this.startTime,
         endTime: new Date().toISOString(),
         caloriesBurned: this.caloriesBurned,
-        score: this.currentLevel,
-        bonusCalories: this.stageCoins * 10, // 예시 계산
-      });
+        coins: this.coins,
+    };
+
+    console.log("게임 결과 데이터 준비 완료:", this.gameResult);
+  },
+
+  async showGameResult() {
+    if (!this.gameResult) {
+        console.error("게임 결과가 없습니다.");
+        return;
+    }
+
+    const jwtToken = sessionStorage.getItem("access-token");
+    if (!jwtToken) {
+        alert("인증 토큰이 없습니다. 다시 로그인해주세요.");
+        this.$router.push({ name: "Login" });
+        return;
+    }
+
+    try {
+        const response = await axios.post(
+            "http://localhost:8080/api-game/game-over",
+            this.gameResult,
+            {
+                headers: {
+                    Authorization: `Bearer ${jwtToken}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+        console.log("게임 결과 저장 성공:", response.data);
+
+        // 결과 화면으로 이동
+        this.$router.push({
+            name: "GameResult",
+            query: {
+                gameResult: JSON.stringify(this.gameResult),
+            },
+        });
     } catch (error) {
-      console.error("게임 세션 저장 실패:", error);
+        console.error("게임 결과 저장 실패:", error.response || error.message);
+        alert("결과 저장에 실패했습니다. 다시 시도해주세요.");
     }
   },
+
 
    restartGame() {
     console.log('처음부터 다시 시작 버튼 호출됨');
@@ -360,34 +423,51 @@ export default {
     this.stageTimer = null; // 타이머 초기화
     this.initializeStage(); // 스테이지 초기화
     this.startCountdown(); // 카운트다운 재시작
+
+    // 칼로리 계산 초기화
+    this.caloriesBurned = 0;
+    this.caloriesPerSecond = 0;
+    this.movementDelta = 0;
+    this.lastKeypointPosition = null;
+
+    // 게임 루프 및 스테이지 초기화
+    this.initializeStage();
+    this.startCountdown();
+    this.startCalorieUpdateTimer(); // 칼로리 업데이트 재개
    },
    restartFromCurrentStage() {
     console.log('현재 스테이지 재도전 버튼 호출됨');
-    // 난이도에 따른 필요한 코인 계산
     const requiredCoins = this.difficulty === 'easy' ? 1 : this.difficulty === 'normal' ? 2 : 3;
 
     // 코인 확인
     if (this.coins >= requiredCoins) {
-      // 필요한 코인 차감
-      this.coins -= requiredCoins;
+        // 필요한 코인 차감
+        this.coins -= requiredCoins;
 
-      // 게임 오버 상태 해제 및 애니메이션 초기화
-      this.gameOver = false;
-      this.animationRunning = false;
+        // 게임 상태 초기화
+        this.gameOver = false;
+        this.animationRunning = false;
 
-      // 타이머 초기화
-      clearInterval(this.stageTimer);
-      this.timeRemaining = 20; // 스테이지 시간 초기화
-      this.stageTimer = null;
+        // 타이머 초기화
+        clearInterval(this.stageTimer);
+        this.timeRemaining = 20; // 스테이지 시간 초기화
+        this.stageTimer = null;
 
-      // 스테이지 재설정
-      this.initializeStage(); // 현재 스테이지 상태를 초기화
-      this.startCountdown(); // 카운트다운 시작
+        // 칼로리 계산 초기화
+        this.caloriesBurned = 0;
+        this.caloriesPerSecond = 0;
+        this.movementDelta = 0;
+        this.lastKeypointPosition = null;
+
+        // 스테이지 및 게임 루프 초기화
+        this.initializeStage();
+        this.startCountdown();
+        this.startCalorieUpdateTimer(); // 칼로리 업데이트 재개
     } else {
-      // 코인 부족 메시지
-      alert(`코인이 부족합니다. 필요한 코인: ${requiredCoins}, 현재 보유 코인: ${this.coins}`);
+        // 코인 부족 메시지
+        alert(`코인이 부족합니다. 필요한 코인: ${requiredCoins}, 현재 보유 코인: ${this.coins}`);
     }
-  },
+},
    exitGame() {
      console.log('게임 종료 버튼 호출됨');
      this.animationRunning = false;
@@ -408,10 +488,13 @@ export default {
     if (this.isPaused) {
       this.animationRunning = false; // 애니메이션 중지
       this.pauseStageTimer(); // 타이머 일시정지
+      this.stopCalorieUpdateTimer(); // 칼로리 업데이트 정지
     } else {
       this.animationRunning = true; // 애니메이션 재개
       this.startStageTimer(); // 타이머 재개
+      this.startCalorieUpdateTimer();
       this.gameLoop(); // 게임 루프 재개
+      
     }
   },
 
@@ -645,6 +728,10 @@ export default {
        if (distance < ball.radius + this.characterSize / 2) {
          this.animationRunning = false;
          this.gameOver = true;
+
+         console.log("충돌로 인해 endGame 호출"); // 확인용 로그
+         this.endGame(false); // 충돌 시 게임 종료 호출
+
        }
      });
    },
@@ -671,31 +758,77 @@ export default {
       this.characterY = newCharacterY;
     }
   },
+  startCalorieUpdateTimer() {
+    if (this.calorieUpdateInterval) return; // 이미 타이머가 실행 중이면 중복 실행 방지
+
+    this.calorieUpdateInterval = setInterval(() => {
+        if (this.animationRunning && !this.gameOver) { // 게임이 실행 중이고 종료되지 않았을 때만 업데이트
+            if (this.caloriesPerSecond > 0) {
+                this.caloriesBurned += this.caloriesPerSecond; // 초당 소모량 누적
+            }
+
+            // 디버깅: 소모 칼로리 로그
+            console.log(`현재까지 소모된 칼로리: ${this.caloriesBurned.toFixed(2)} kcal`);
+
+            // 움직임 변화량 초기화
+            this.movementDelta = 0;
+        }
+    }, 1000); // 매초 업데이트
+},
+stopCalorieUpdateTimer() {
+    if (this.calorieUpdateInterval) {
+        clearInterval(this.calorieUpdateInterval);
+        this.calorieUpdateInterval = null;
+        console.log("칼로리 업데이트 타이머가 정지되었습니다.");
+    }
+},
   calculateCalories(keypoints) {
-    if (this.gameOver) return; // 게임 오버 시 실행 중단
-    const leftShoulder = keypoints.find((point) => point.name === 'left_shoulder');
-    const rightShoulder = keypoints.find((point) => point.name === 'right_shoulder');
+    if (this.gameOver) return;
+
+    const userStore = useUserStore();
+    const { height, weight, gender } = userStore.signupData;
+
+    if (!weight || !height) {
+        console.error("사용자 정보가 누락되었습니다.");
+        return;
+    }
+
+    // MET 값 설정 (난이도별)
+    const MET = this.difficulty === "easy" ? 3.0 : this.difficulty === "normal" ? 6.0 : 8.0;
+
+    // 어깨 키포인트 가져오기
+    const leftShoulder = keypoints.find((point) => point.name === "left_shoulder");
+    const rightShoulder = keypoints.find((point) => point.name === "right_shoulder");
 
     if (leftShoulder && rightShoulder && leftShoulder.score > 0.5 && rightShoulder.score > 0.5) {
-      const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
+        const currentPosition = (leftShoulder.y + rightShoulder.y) / 2;
 
-      if (this.lastKeypointPosition !== null) {
-        const delta = Math.abs(currentPosition - this.lastKeypointPosition);
+        if (this.lastKeypointPosition !== null) {
+            const delta = Math.abs(currentPosition - this.lastKeypointPosition);
 
-        if (delta > 3) {
-          this.caloriesBurned += delta * 0.0001;
+            // 움직임 변화량이 일정 임계값 이상일 경우에만 업데이트
+            const threshold = 5; // 움직임 감도 (최소 변화량)
+            if (delta > threshold) {
+                this.movementDelta += delta; // 움직임 누적
+            }
         }
-      }
 
-      this.lastKeypointPosition = currentPosition;
+        // 초당 소모 칼로리 계산 (1분 단위 환산)
+        const caloriesPerMinute = (MET * weight * 3.5) / 200;
+        const caloriesPerSecond = caloriesPerMinute / 60;
+
+        this.caloriesPerSecond = caloriesPerSecond * (this.movementDelta / 100); // 움직임 비율 반영
+        this.lastKeypointPosition = currentPosition;
     }
-  },
- },
+},
+},
 
  mounted() {
+    this.startCalorieUpdateTimer();
     window.addEventListener('keydown', this.handleKeyDown);
   },
   beforeDestroy() {
+    this.stopCalorieUpdateTimer();
     window.removeEventListener('keydown', this.handleKeyDown);
   },
   
